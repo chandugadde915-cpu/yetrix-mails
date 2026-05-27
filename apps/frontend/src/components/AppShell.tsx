@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/domains", label: "Domains", icon: Globe2 },
   { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
   { href: "/webmail", label: "Webmail", icon: Mail },
@@ -19,11 +19,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">OwnMail</div>
+        <div className="brand">Yetrix</div>
         <nav className="nav" aria-label="Main navigation">
-          {navItems.map((item, index) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const isActive = pathname.startsWith(item.href);
             return (
               <Link className={isActive ? "active" : ""} href={item.href} key={item.href}>
                 <Icon size={18} />

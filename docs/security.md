@@ -2,6 +2,7 @@
 
 ## Must-Have Before Real Customers
 
+- Replace the temporary `admin` / `admin` frontend demo login with real backend authentication.
 - Real user authentication with MFA-ready account recovery.
 - Workspace roles: owner, admin, support, billing.
 - Per-workspace authorization on every domain and mailbox query.

@@ -33,6 +33,17 @@ The first production target is custom-domain email hosting:
 6. Postfix and Dovecot authenticate mailboxes from PostgreSQL.
 7. User logs into Roundcube webmail.
 
+## Demo Login
+
+The current frontend includes a temporary demo login:
+
+```text
+username: admin
+password: admin
+```
+
+Replace this with real backend authentication before using the platform with real users.
+
 ## Local Development
 
 Frontend:

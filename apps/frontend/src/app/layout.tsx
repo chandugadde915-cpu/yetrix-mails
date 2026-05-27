@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "OwnMail Admin",
-  description: "Custom-domain email hosting dashboard",
+  title: "Yetrix Mails",
+  description: "Custom-domain email hosting platform",
 };
 
 export default function RootLayout({

@@ -1,79 +1,72 @@
-import { AppShell } from "@/components/AppShell";
-import { apiGet } from "@/lib/api";
-import { Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, CheckCircle2, Mail, Network, ShieldCheck, Zap } from "lucide-react";
+import Link from "next/link";
 
-const fallbackDomains = [
-  { domain: "company.com", status: "pending_dns", createdAt: new Date().toISOString() },
+const features = [
+  { icon: Network, label: "Domain DNS verification" },
+  { icon: Mail, label: "Custom business mailboxes" },
+  { icon: ShieldCheck, label: "SPF, DKIM, DMARC ready" },
+  { icon: Zap, label: "Vercel plus AWS deployment" },
 ];
 
-export default async function DashboardPage() {
-  const domains = await apiGet("/domains", fallbackDomains);
-  const verifiedDomains = domains.filter((domain) => domain.status === "active").length;
-
+export default function LandingPage() {
   return (
-    <AppShell>
-      <div className="topbar">
-        <div className="title">
-          <h1>Workspace Dashboard</h1>
-          <p>Manage domains, mailboxes, DNS status, and platform health.</p>
-        </div>
-        <button className="button">
-          <Plus size={18} />
-          Add domain
-        </button>
-      </div>
+    <main className="landing">
+      <nav className="landing-nav" aria-label="Yetrix navigation">
+        <Link className="landing-logo" href="/">
+          <Mail size={22} />
+          Yetrix Mails
+        </Link>
+        <Link className="button secondary landing-login" href="/login">
+          Login
+          <ArrowRight size={18} />
+        </Link>
+      </nav>
 
-      <section className="grid">
-        <div className="panel">
-          <div className="metric">Verified domains</div>
-          <div className="value">{verifiedDomains}</div>
-        </div>
-        <div className="panel">
-          <div className="metric">Active mailboxes</div>
-          <div className="value">0</div>
-        </div>
-        <div className="panel">
-          <div className="metric">Outbound queue</div>
-          <div className="value">0</div>
-        </div>
-      </section>
-
-      <section className="panel section">
-        <div className="topbar">
-          <div className="title">
-            <h1>Domain Health</h1>
-            <p>DNS verification status for customer domains.</p>
+      <section className="hero">
+        <div className="hero-copy">
+          <div className="eyebrow">
+            <CheckCircle2 size={16} />
+            Own your business email stack
           </div>
-          <button className="button secondary">
-            <RefreshCw size={18} />
-            Recheck DNS
-          </button>
+          <h1>Yetrix Mails</h1>
+          <p>
+            A custom-domain email hosting platform with Vercel for the dashboard and AWS for
+            backend, SMTP, IMAP, DNS verification, and webmail infrastructure.
+          </p>
+          <div className="hero-actions">
+            <Link className="button hero-button" href="/login">
+              Login
+              <ArrowRight size={18} />
+            </Link>
+            <span className="demo-credential">admin / admin</span>
+          </div>
         </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Domain</th>
-              <th>Status</th>
-              <th>Mailboxes</th>
-              <th>Health</th>
-            </tr>
-          </thead>
-          <tbody>
-            {domains.map((domain) => (
-              <tr key={domain.domain}>
-                <td>{domain.domain}</td>
-                <td>
-                  <span className={`badge ${domain.status === "active" ? "good" : "warn"}`}>
-                    {domain.status === "active" ? "Verified" : "Pending DNS"}
-                  </span>
-                </td>
-                <td>0</td>
-                <td>{domain.status === "active" ? "Good" : "Needs records"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        <div className="mail-visual" aria-hidden="true">
+          <div className="mail-node node-a">MX</div>
+          <div className="mail-node node-b">DKIM</div>
+          <div className="mail-node node-c">IMAP</div>
+          <div className="mail-node node-d">SMTP</div>
+          <div className="mail-route route-one" />
+          <div className="mail-route route-two" />
+          <div className="mail-route route-three" />
+          <div className="envelope envelope-one" />
+          <div className="envelope envelope-two" />
+          <div className="envelope envelope-three" />
+        </div>
       </section>
-    </AppShell>
+
+      <section className="feature-strip" aria-label="Platform features">
+        {features.map((feature) => {
+          const Icon = feature.icon;
+          return (
+            <div className="feature-item" key={feature.label}>
+              <Icon size={20} />
+              <span>{feature.label}</span>
+            </div>
+          );
+        })}
+      </section>
+    </main>
   );
 }
