@@ -1,0 +1,5 @@
+user = ownmail
+password = CHANGE_ME
+hosts = POSTGRES_HOST
+dbname = ownmail
+query = SELECT 1 FROM domains WHERE domain = '%s' AND status = 'active'

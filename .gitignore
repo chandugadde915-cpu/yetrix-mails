@@ -1,0 +1,14 @@
+node_modules
+.npm-cache
+.next
+dist
+.env
+.env.local
+.vercel
+coverage
+*.log
+*.tsbuildinfo
+maildata
+rspamd-data
+postgres-data
+redis-data

@@ -1,0 +1,5 @@
+user = ownmail
+password = CHANGE_ME
+hosts = POSTGRES_HOST
+dbname = ownmail
+query = SELECT destination_email FROM aliases WHERE source_email = '%s'

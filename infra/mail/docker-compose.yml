@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ownmail
+      POSTGRES_USER: ownmail
+      POSTGRES_PASSWORD: ownmail
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../apps/backend/src/config/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  rspamd:
+    image: rspamd/rspamd:latest
+    ports:
+      - "11334:11334"
+    volumes:
+      - rspamd-data:/var/lib/rspamd
+
+  roundcube:
+    image: roundcube/roundcubemail:latest
+    depends_on:
+      - postgres
+    environment:
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://mail.yourmailplatform.com
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      ROUNDCUBEMAIL_SMTP_SERVER: tls://mail.yourmailplatform.com
+      ROUNDCUBEMAIL_SMTP_PORT: 587
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres-data:
+  redis-data:
+  rspamd-data:

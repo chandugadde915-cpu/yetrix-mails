@@ -1,0 +1,4 @@
+driver = pgsql
+connect = host=POSTGRES_HOST dbname=ownmail user=ownmail password=CHANGE_ME
+default_pass_scheme = BLF-CRYPT
+password_query = SELECT email AS user, password_hash AS password FROM mailboxes WHERE email = '%u' AND is_active = true
