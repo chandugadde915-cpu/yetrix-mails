@@ -116,6 +116,12 @@ input {
   gap: 16px;
 }
 
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -128,14 +134,29 @@ input {
   font-size: 14px;
 }
 
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
 .value {
   font-size: 30px;
   font-weight: 700;
   margin-top: 8px;
 }
 
+.small-value {
+  font-size: 24px;
+}
+
 .section {
   margin-top: 18px;
+}
+
+.compact {
+  margin-bottom: 14px;
 }
 
 .table {
@@ -191,6 +212,177 @@ input {
 .mono {
   font-family: "SFMono-Regular", Consolas, monospace;
   overflow-wrap: anywhere;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.7fr);
+  gap: 16px;
+}
+
+.endpoint-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.endpoint-list div,
+.toggle-row,
+.folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.endpoint-list span,
+.toggle-row span {
+  color: var(--muted);
+}
+
+.endpoint-list strong,
+.toggle-row strong {
+  text-align: right;
+}
+
+.storage-box {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #115e59;
+}
+
+.progress {
+  width: 100%;
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #f59e0b);
+}
+
+.domain-grid,
+.settings-grid,
+.webmail-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.domain-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.domain-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.domain-card-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.domain-card-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.record-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quota-cell {
+  min-width: 170px;
+}
+
+.split-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.webmail-layout {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.folder-list {
+  align-self: start;
+}
+
+.folder-row {
+  margin-bottom: 10px;
+}
+
+.message-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.message-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.message-head span,
+.message-row p {
+  color: var(--muted);
+}
+
+.message-row h2 {
+  margin: 4px 0;
+  font-size: 16px;
+}
+
+.message-row p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.toggle-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .landing {
@@ -653,6 +845,14 @@ input {
     grid-template-columns: 1fr;
   }
 
+  .metric-grid,
+  .dashboard-layout,
+  .domain-grid,
+  .settings-grid,
+  .webmail-layout {
+    grid-template-columns: 1fr;
+  }
+
   .topbar {
     align-items: flex-start;
     flex-direction: column;
@@ -678,6 +878,11 @@ input {
 
   .auth-art {
     min-height: 280px;
+  }
+
+  .table {
+    display: block;
+    overflow-x: auto;
   }
 }
 
@@ -718,5 +923,21 @@ input {
 
   .auth-panel {
     padding: 32px 20px;
+  }
+
+  .main {
+    padding: 18px;
+  }
+
+  .split-row,
+  .domain-card-head,
+  .record-line,
+  .message-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .message-row {
+    grid-template-columns: 1fr;
   }
 }

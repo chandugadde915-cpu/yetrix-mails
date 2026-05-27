@@ -1,16 +1,9 @@
 import { AppShell } from "@/components/AppShell";
-import { apiGet } from "@/lib/api";
+import { getDummyData } from "@/lib/dummy-data";
 import { RefreshCw } from "lucide-react";
 
-const fallbackRecords = [
-  { type: "MX", name: "company.com", value: "mail.yourmailplatform.com" },
-  { type: "TXT", name: "company.com", value: "v=spf1 mx include:yourmailplatform.com ~all" },
-  { type: "TXT", name: "default._domainkey.company.com", value: "v=DKIM1; k=rsa; p=PUBLIC_KEY" },
-  { type: "TXT", name: "_dmarc.company.com", value: "v=DMARC1; p=quarantine; rua=mailto:dmarc@yourmailplatform.com" },
-];
-
-export default async function DomainsPage() {
-  const records = await apiGet("/domains/company.com/dns-records", fallbackRecords);
+export default function DomainsPage() {
+  const { domains } = getDummyData();
 
   return (
     <AppShell>
@@ -25,19 +18,36 @@ export default async function DomainsPage() {
         </button>
       </div>
 
-      <section className="panel">
-        <h2>company.com</h2>
-        <div className="records">
-          {records.map((record) => (
-            <div className="record" key={`${record.type}-${record.name}`}>
-              <strong>{record.type}</strong>
+      <section className="domain-grid">
+        {domains.map((domain) => (
+          <article className="panel" key={domain.domain}>
+            <div className="domain-card-head">
               <div>
-                <div className="mono">{record.name}</div>
-                <div className="mono">{record.value}</div>
+                <h2>{domain.domain}</h2>
+                <p>{domain.mailboxes} mailboxes</p>
               </div>
+              <span className={`badge ${domain.status === "active" ? "good" : "warn"}`}>
+                {domain.status === "active" ? "Verified" : "Pending DNS"}
+              </span>
             </div>
-          ))}
-        </div>
+            <div className="records">
+              {domain.records.map((record) => (
+                <div className="record" key={`${domain.domain}-${record.type}-${record.name}`}>
+                  <strong>{record.type}</strong>
+                  <div>
+                    <div className="record-line">
+                      <span className="mono">{record.name}</span>
+                      <span className={`badge ${record.status === "verified" ? "good" : "warn"}`}>
+                        {record.status}
+                      </span>
+                    </div>
+                    <div className="mono muted-text">{record.value}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
       </section>
     </AppShell>
   );

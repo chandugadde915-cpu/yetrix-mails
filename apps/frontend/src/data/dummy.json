@@ -1,0 +1,287 @@
+{
+  "workspace": {
+    "name": "Yetrix Mails",
+    "owner": "Admin",
+    "plan": "Launch",
+    "primaryDomain": "yetrixmails.com",
+    "region": "AWS eu-north-1",
+    "frontendUrl": "app.yetrixmails.com",
+    "apiUrl": "api.yetrixmails.com",
+    "mailHost": "mail.yetrixmails.com",
+    "webmailUrl": "webmail.yetrixmails.com"
+  },
+  "metrics": {
+    "verifiedDomains": 2,
+    "totalDomains": 4,
+    "activeMailboxes": 18,
+    "outboundQueue": 7,
+    "messagesToday": 1248,
+    "deliveryRate": "98.7%",
+    "storageUsedGb": 36,
+    "storageLimitGb": 100
+  },
+  "domains": [
+    {
+      "domain": "yetrixmails.com",
+      "status": "active",
+      "mailboxes": 8,
+      "health": "Good",
+      "createdAt": "2026-05-28",
+      "records": [
+        {
+          "type": "A",
+          "name": "mail.yetrixmails.com",
+          "value": "13.61.13.198",
+          "status": "verified"
+        },
+        {
+          "type": "MX",
+          "name": "yetrixmails.com",
+          "value": "10 mail.yetrixmails.com",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "yetrixmails.com",
+          "value": "v=spf1 mx ip4:13.61.13.198 ~all",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "default._domainkey.yetrixmails.com",
+          "value": "v=DKIM1; k=rsa; p=MIIBIjANBgkqh...",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc.yetrixmails.com",
+          "value": "v=DMARC1; p=quarantine; rua=mailto:dmarc@yetrixmails.com",
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "domain": "acme.design",
+      "status": "active",
+      "mailboxes": 6,
+      "health": "Good",
+      "createdAt": "2026-05-27",
+      "records": [
+        {
+          "type": "MX",
+          "name": "acme.design",
+          "value": "10 mail.yetrixmails.com",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "acme.design",
+          "value": "v=spf1 mx include:yetrixmails.com ~all",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "default._domainkey.acme.design",
+          "value": "v=DKIM1; k=rsa; p=MIIBIjANBgkqh...",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc.acme.design",
+          "value": "v=DMARC1; p=quarantine; rua=mailto:dmarc@yetrixmails.com",
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "domain": "northwind.app",
+      "status": "pending_dns",
+      "mailboxes": 3,
+      "health": "Needs DKIM",
+      "createdAt": "2026-05-26",
+      "records": [
+        {
+          "type": "MX",
+          "name": "northwind.app",
+          "value": "10 mail.yetrixmails.com",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "northwind.app",
+          "value": "v=spf1 mx include:yetrixmails.com ~all",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "default._domainkey.northwind.app",
+          "value": "v=DKIM1; k=rsa; p=MIIBIjANBgkqh...",
+          "status": "missing"
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc.northwind.app",
+          "value": "v=DMARC1; p=quarantine; rua=mailto:dmarc@yetrixmails.com",
+          "status": "verified"
+        }
+      ]
+    },
+    {
+      "domain": "medixcare.in",
+      "status": "pending_dns",
+      "mailboxes": 1,
+      "health": "Needs MX/SPF",
+      "createdAt": "2026-05-25",
+      "records": [
+        {
+          "type": "MX",
+          "name": "medixcare.in",
+          "value": "10 mail.yetrixmails.com",
+          "status": "missing"
+        },
+        {
+          "type": "TXT",
+          "name": "medixcare.in",
+          "value": "v=spf1 mx include:yetrixmails.com ~all",
+          "status": "missing"
+        },
+        {
+          "type": "TXT",
+          "name": "default._domainkey.medixcare.in",
+          "value": "v=DKIM1; k=rsa; p=MIIBIjANBgkqh...",
+          "status": "verified"
+        },
+        {
+          "type": "TXT",
+          "name": "_dmarc.medixcare.in",
+          "value": "v=DMARC1; p=quarantine; rua=mailto:dmarc@yetrixmails.com",
+          "status": "missing"
+        }
+      ]
+    }
+  ],
+  "mailboxes": [
+    {
+      "address": "admin@yetrixmails.com",
+      "name": "Admin",
+      "domain": "yetrixmails.com",
+      "quotaMb": 10240,
+      "usedMb": 2860,
+      "status": "active",
+      "lastLogin": "Today, 9:12 AM",
+      "aliases": ["postmaster@yetrixmails.com", "abuse@yetrixmails.com"]
+    },
+    {
+      "address": "support@yetrixmails.com",
+      "name": "Support",
+      "domain": "yetrixmails.com",
+      "quotaMb": 5120,
+      "usedMb": 3910,
+      "status": "active",
+      "lastLogin": "Today, 8:44 AM",
+      "aliases": ["help@yetrixmails.com"]
+    },
+    {
+      "address": "billing@yetrixmails.com",
+      "name": "Billing",
+      "domain": "yetrixmails.com",
+      "quotaMb": 5120,
+      "usedMb": 1240,
+      "status": "active",
+      "lastLogin": "Yesterday, 6:20 PM",
+      "aliases": []
+    },
+    {
+      "address": "hello@acme.design",
+      "name": "Acme Front Desk",
+      "domain": "acme.design",
+      "quotaMb": 5120,
+      "usedMb": 970,
+      "status": "active",
+      "lastLogin": "Today, 10:03 AM",
+      "aliases": ["contact@acme.design"]
+    },
+    {
+      "address": "ops@northwind.app",
+      "name": "Northwind Ops",
+      "domain": "northwind.app",
+      "quotaMb": 2048,
+      "usedMb": 450,
+      "status": "pending_dns",
+      "lastLogin": "Not available",
+      "aliases": []
+    },
+    {
+      "address": "admin@medixcare.in",
+      "name": "Medix Admin",
+      "domain": "medixcare.in",
+      "quotaMb": 2048,
+      "usedMb": 120,
+      "status": "disabled",
+      "lastLogin": "Not available",
+      "aliases": []
+    }
+  ],
+  "webmail": {
+    "folders": [
+      { "name": "Inbox", "count": 18 },
+      { "name": "Sent", "count": 42 },
+      { "name": "Drafts", "count": 3 },
+      { "name": "Spam", "count": 5 }
+    ],
+    "messages": [
+      {
+        "from": "AWS Notifications",
+        "subject": "Elastic IP reverse DNS request received",
+        "preview": "We received your reverse DNS update request for 13.61.13.198.",
+        "time": "10:41 AM",
+        "status": "unread"
+      },
+      {
+        "from": "Acme Design",
+        "subject": "Mailbox setup completed",
+        "preview": "The team can now access hello@acme.design from webmail.",
+        "time": "9:18 AM",
+        "status": "read"
+      },
+      {
+        "from": "Rspamd",
+        "subject": "Daily spam filtering report",
+        "preview": "1248 messages scanned, 19 rejected, 7 greylisted.",
+        "time": "8:00 AM",
+        "status": "read"
+      },
+      {
+        "from": "Yetrix Monitor",
+        "subject": "Outbound queue healthy",
+        "preview": "SMTP queue depth is below the configured warning threshold.",
+        "time": "Yesterday",
+        "status": "read"
+      }
+    ]
+  },
+  "billing": {
+    "plan": "Launch",
+    "price": "$29/mo",
+    "includedMailboxes": 25,
+    "storageGb": 100,
+    "renewalDate": "2026-06-28",
+    "invoices": [
+      { "id": "INV-1007", "date": "2026-05-28", "amount": "$29.00", "status": "Paid" },
+      { "id": "INV-1006", "date": "2026-04-28", "amount": "$29.00", "status": "Paid" },
+      { "id": "INV-1005", "date": "2026-03-28", "amount": "$19.00", "status": "Paid" }
+    ]
+  },
+  "settings": {
+    "security": [
+      { "label": "Require strong mailbox passwords", "enabled": true },
+      { "label": "Force TLS for SMTP submission", "enabled": true },
+      { "label": "Admin audit logging", "enabled": true },
+      { "label": "Outbound rate limits", "enabled": true }
+    ],
+    "admins": [
+      { "name": "Admin", "email": "admin@yetrixmails.com", "role": "Owner" },
+      { "name": "Support", "email": "support@yetrixmails.com", "role": "Support Admin" }
+    ]
+  }
+}

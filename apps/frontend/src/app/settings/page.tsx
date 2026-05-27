@@ -1,15 +1,91 @@
 import { AppShell } from "@/components/AppShell";
+import { getDummyData } from "@/lib/dummy-data";
 
 export default function SettingsPage() {
+  const { settings, workspace } = getDummyData();
+
   return (
     <AppShell>
       <div className="title">
         <h1>Settings</h1>
         <p>Workspace identity, security defaults, and admin controls.</p>
       </div>
+      <section className="settings-grid section">
+        <div className="panel">
+          <h2>Workspace</h2>
+          <div className="endpoint-list">
+            <div>
+              <span>Name</span>
+              <strong>{workspace.name}</strong>
+            </div>
+            <div>
+              <span>Primary domain</span>
+              <strong>{workspace.primaryDomain}</strong>
+            </div>
+            <div>
+              <span>Region</span>
+              <strong>{workspace.region}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel">
+          <h2>Security defaults</h2>
+          <div className="toggle-list">
+            {settings.security.map((item) => (
+              <div className="toggle-row" key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.enabled ? "On" : "Off"}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="panel section">
-        <h2>Security defaults</h2>
-        <p>Require strong mailbox passwords, submission over TLS, and admin audit logging.</p>
+        <div className="title">
+          <h1>Admins</h1>
+          <p>Workspace access shown from dummy JSON.</p>
+        </div>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            {settings.admins.map((admin) => (
+              <tr key={admin.email}>
+                <td>{admin.name}</td>
+                <td>{admin.email}</td>
+                <td>{admin.role}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="panel section">
+        <div className="title">
+          <h1>Service Endpoints</h1>
+          <p>Use these values when backend and mail services are connected.</p>
+        </div>
+        <div className="records">
+          <div className="record">
+            <strong>API</strong>
+            <span className="mono">{workspace.apiUrl}</span>
+          </div>
+          <div className="record">
+            <strong>SMTP</strong>
+            <span className="mono">{workspace.mailHost}:587</span>
+          </div>
+          <div className="record">
+            <strong>IMAP</strong>
+            <span className="mono">{workspace.mailHost}:993</span>
+          </div>
+        </div>
       </section>
     </AppShell>
   );

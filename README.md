@@ -44,6 +44,16 @@ password: admin
 
 Replace this with real backend authentication before using the platform with real users.
 
+## Frontend Demo Data
+
+Until the backend is connected, the admin dashboard uses local dummy JSON from:
+
+```text
+apps/frontend/src/data/dummy.json
+```
+
+Update that file to change the demo domains, mailboxes, billing data, settings, and webmail preview.
+
 ## Local Development
 
 Frontend:
