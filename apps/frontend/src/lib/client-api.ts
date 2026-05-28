@@ -31,15 +31,32 @@ async function apiRequest<T>(
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
-  const payload = (await response.json()) as {
+  const payload = (await parsePayload(response)) as {
     success?: boolean;
     data?: T;
     error?: string;
   };
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    window.location.assign("/login");
+  }
 
   if (!response.ok || payload.success === false) {
     throw new Error(payload.error ?? "API request failed");
   }
 
   return (payload.data ?? payload) as T;
+}
+
+async function parsePayload(response: Response) {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { success: false, error: text };
+  }
 }

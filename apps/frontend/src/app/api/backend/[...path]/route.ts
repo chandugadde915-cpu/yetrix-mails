@@ -1,4 +1,4 @@
-import { backendRequest } from "@/lib/server-api";
+import { ApiRequestError, backendRequest } from "@/lib/server-api";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -44,7 +44,7 @@ async function proxy(request: NextRequest, context: Params) {
         success: false,
         error: error instanceof Error ? error.message : "API request failed",
       },
-      { status: 500 },
+      { status: error instanceof ApiRequestError ? error.status : 500 },
     );
   }
 }

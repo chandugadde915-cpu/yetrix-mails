@@ -1,68 +1,92 @@
 import { AppShell } from "@/components/AppShell";
-import { getDummyData } from "@/lib/dummy-data";
+import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { Domain, Mailbox, formatStorage } from "@/lib/platform-data";
+import { redirect } from "next/navigation";
 
-export default function BillingPage() {
-  const { billing, metrics } = getDummyData();
+export const dynamic = "force-dynamic";
+
+export default async function BillingPage() {
+  if (!(await requireAuthToken())) {
+    redirect("/login");
+  }
+
+  const [domains, mailboxes] = await Promise.all([
+    apiGet<Domain[]>("/api/domains"),
+    apiGet<Mailbox[]>("/api/mailboxes"),
+  ]);
+  const storageLimitMb = mailboxes.reduce((total, mailbox) => total + (mailbox.quotaMb ?? 0), 0);
+  const storageUsedMb = mailboxes.reduce((total, mailbox) => total + (mailbox.usedMb ?? 0), 0);
+  const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
 
   return (
     <AppShell>
       <div className="title">
         <h1>Billing</h1>
-        <p>Plans, mailbox limits, storage quotas, and invoices.</p>
+        <p>Live usage summary for domains, mailboxes, and allocated storage.</p>
       </div>
       <section className="grid section">
         <div className="panel">
           <div className="metric">Plan</div>
-          <div className="value">{billing.plan}</div>
+          <div className="value">Launch</div>
         </div>
         <div className="panel">
-          <div className="metric">Included mailboxes</div>
-          <div className="value">{billing.includedMailboxes}</div>
+          <div className="metric">Active mailboxes</div>
+          <div className="value">{activeMailboxes}</div>
         </div>
         <div className="panel">
-          <div className="metric">Storage</div>
-          <div className="value">{metrics.storageUsedGb}/{billing.storageGb} GB</div>
+          <div className="metric">Allocated storage</div>
+          <div className="value">{formatStorage(storageLimitMb)}</div>
         </div>
       </section>
 
       <section className="panel section">
         <div className="split-row">
           <div>
-            <div className="metric">Monthly price</div>
-            <div className="value">{billing.price}</div>
+            <div className="metric">Domains</div>
+            <div className="value">{domains.length}</div>
           </div>
           <div>
-            <div className="metric">Next renewal</div>
-            <div className="value small-value">{billing.renewalDate}</div>
+            <div className="metric">Storage used</div>
+            <div className="value small-value">{formatStorage(storageUsedMb)}</div>
           </div>
         </div>
       </section>
 
       <section className="panel section">
         <div className="title">
-          <h1>Invoices</h1>
-          <p>Dummy billing history for the demo dashboard.</p>
+          <h1>Usage Ledger</h1>
+          <p>Current customer-facing capacity pulled from Mailcow through the backend API.</p>
         </div>
         <table className="table">
           <thead>
             <tr>
-              <th>Invoice</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Status</th>
+              <th>Metric</th>
+              <th>Current</th>
+              <th>Billing status</th>
             </tr>
           </thead>
           <tbody>
-            {billing.invoices.map((invoice) => (
-              <tr key={invoice.id}>
-                <td>{invoice.id}</td>
-                <td>{invoice.date}</td>
-                <td>{invoice.amount}</td>
-                <td>
-                  <span className="badge good">{invoice.status}</span>
-                </td>
-              </tr>
-            ))}
+            <tr>
+              <td>Domains</td>
+              <td>{domains.length}</td>
+              <td>
+                <span className="badge good">Included</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Mailboxes</td>
+              <td>{mailboxes.length}</td>
+              <td>
+                <span className="badge good">Included</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Storage</td>
+              <td>{formatStorage(storageUsedMb)} used</td>
+              <td>
+                <span className="badge good">Monitored</span>
+              </td>
+            </tr>
           </tbody>
         </table>
       </section>

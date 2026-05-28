@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { DomainsClient } from "@/components/DomainsClient";
-import { Domain } from "@/lib/dummy-data";
+import { Domain } from "@/lib/platform-data";
 import { apiGet, requireAuthToken } from "@/lib/server-api";
 import { RefreshCw } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -21,10 +21,10 @@ export default async function DomainsPage() {
           <h1>Domains</h1>
           <p>Add customer domains and verify mail DNS records.</p>
         </div>
-        <button className="button">
+        <a className="button" href="/domains">
           <RefreshCw size={18} />
           Check records
-        </button>
+        </a>
       </div>
 
       <DomainsClient initialDomains={domains} />

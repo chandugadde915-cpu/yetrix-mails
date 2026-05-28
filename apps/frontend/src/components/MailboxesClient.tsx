@@ -1,17 +1,27 @@
 "use client";
 
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
-import { formatStorage, Mailbox, usagePercent } from "@/lib/dummy-data";
+import { formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
 import { KeyRound, Plus, Power, Save, Trash2 } from "lucide-react";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbox[] }) {
   const router = useRouter();
   const [mailboxes, setMailboxes] = useState(initialMailboxes);
+  const [quotaDrafts, setQuotaDrafts] = useState<Record<string, number>>(() =>
+    Object.fromEntries(initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb ?? 0])),
+  );
   const [form, setForm] = useState({ email: "", name: "", password: "", quotaMb: 2048 });
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setMailboxes(initialMailboxes);
+    setQuotaDrafts(
+      Object.fromEntries(initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb ?? 0])),
+    );
+  }, [initialMailboxes]);
 
   async function createMailbox(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,6 +38,9 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
   async function updateQuota(email: string, quotaMb: number) {
     try {
       await apiPut(`/api/mailboxes/${encodeURIComponent(email)}`, { quotaMb });
+      setMailboxes((current) =>
+        current.map((mailbox) => (mailbox.address === email ? { ...mailbox, quotaMb } : mailbox)),
+      );
       setMessage(`Quota updated for ${email}.`);
       startTransition(() => router.refresh());
     } catch (error) {
@@ -57,6 +70,8 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
   }
 
   async function deleteMailbox(email: string) {
+    if (!window.confirm(`Delete ${email}?`)) return;
+
     try {
       await apiDelete(`/api/mailboxes/${encodeURIComponent(email)}`);
       setMailboxes((current) => current.filter((mailbox) => mailbox.address !== email));
@@ -68,19 +83,22 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
 
   return (
     <>
-      <form className="mailbox-create" onSubmit={createMailbox}>
+      <form className="mailbox-create" id="mailbox-create" onSubmit={createMailbox}>
         <input
+          aria-label="Mailbox email"
           placeholder="user@yetrixtechnologies.com"
           value={form.email}
           onChange={(event) => setForm({ ...form, email: event.target.value })}
           required
         />
         <input
+          aria-label="Display name"
           placeholder="Display name"
           value={form.name}
           onChange={(event) => setForm({ ...form, name: event.target.value })}
         />
         <input
+          aria-label="Mailbox password"
           placeholder="Password"
           type="password"
           value={form.password}
@@ -89,6 +107,7 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
           required
         />
         <input
+          aria-label="Mailbox quota in MB"
           min={128}
           max={102400}
           type="number"
@@ -126,6 +145,20 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
                     <div className="progress">
                       <span style={{ width: `${usagePercent(mailbox.usedMb ?? 0, mailbox.quotaMb ?? 1)}%` }} />
                     </div>
+                    <input
+                      aria-label={`Quota for ${mailbox.address}`}
+                      className="quota-input"
+                      min={128}
+                      max={102400}
+                      type="number"
+                      value={quotaDrafts[mailbox.address] ?? mailbox.quotaMb ?? 0}
+                      onChange={(event) =>
+                        setQuotaDrafts((current) => ({
+                          ...current,
+                          [mailbox.address]: Number(event.target.value),
+                        }))
+                      }
+                    />
                   </div>
                 </td>
                 <td>
@@ -138,7 +171,12 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
                     <button
                       className="icon-button"
                       title="Save quota"
-                      onClick={() => void updateQuota(mailbox.address, mailbox.quotaMb)}
+                      onClick={() =>
+                        void updateQuota(
+                          mailbox.address,
+                          quotaDrafts[mailbox.address] ?? mailbox.quotaMb ?? 0,
+                        )
+                      }
                     >
                       <Save size={16} />
                     </button>
@@ -167,6 +205,11 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
                 </td>
               </tr>
             ))}
+            {mailboxes.length === 0 ? (
+              <tr>
+                <td colSpan={5}>No mailboxes yet. Create the first address above.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </section>

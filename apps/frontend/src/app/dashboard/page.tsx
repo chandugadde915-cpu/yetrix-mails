@@ -1,7 +1,8 @@
 import { AppShell } from "@/components/AppShell";
 import { apiGet, requireAuthToken } from "@/lib/server-api";
-import { Domain, Mailbox } from "@/lib/dummy-data";
+import { Domain, Mailbox, domainHealth, usagePercent } from "@/lib/platform-data";
 import { Activity, Database, Globe2, Inbox, Plus, RefreshCw, Send } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function DashboardPage() {
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const metrics = {
     totalDomains: domains.length,
-    verifiedDomains: domains.filter((domain) => domain.status === "active").length,
+    verifiedDomains: domains.filter((domain) => domainHealth(domain).healthy).length,
     activeMailboxes,
     inactiveMailboxes: mailboxes.length - activeMailboxes,
     outboundQueue: 0,
@@ -42,10 +43,10 @@ export default async function DashboardPage() {
           <h1>Workspace Dashboard</h1>
           <p>Manage domains, mailboxes, DNS status, and platform health.</p>
         </div>
-        <button className="button">
+        <Link className="button" href="/domains#domain-create">
           <Plus size={18} />
           Add domain
-        </button>
+        </Link>
       </div>
 
       <section className="metric-grid">
@@ -68,7 +69,7 @@ export default async function DashboardPage() {
         <div className="panel">
           <div className="metric-row">
             <Send size={20} />
-              <div className="metric">Inactive mailboxes</div>
+            <div className="metric">Inactive mailboxes</div>
           </div>
           <div className="value">{metrics.inactiveMailboxes}</div>
         </div>
@@ -88,10 +89,10 @@ export default async function DashboardPage() {
               <h1>Domain Health</h1>
               <p>DNS verification status for customer domains.</p>
             </div>
-            <button className="button secondary">
+            <Link className="button secondary" href="/domains">
               <RefreshCw size={18} />
               Recheck DNS
-            </button>
+            </Link>
           </div>
           <table className="table">
             <thead>
@@ -103,18 +104,26 @@ export default async function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {domains.map((domain) => (
-                <tr key={domain.domain}>
-                  <td>{domain.domain}</td>
-                  <td>
-                    <span className={`badge ${domain.status === "active" ? "good" : "warn"}`}>
-                    {domain.status === "active" ? "Verified" : "Pending"}
-                    </span>
-                  </td>
-                  <td>{domain.mailboxes}</td>
-                  <td>{domain.health}</td>
+              {domains.map((domain) => {
+                const health = domainHealth(domain);
+                return (
+                  <tr key={domain.domain}>
+                    <td>{domain.domain}</td>
+                    <td>
+                      <span className={`badge ${health.healthy ? "good" : "warn"}`}>
+                        {health.healthy ? "Verified" : "Pending"}
+                      </span>
+                    </td>
+                    <td>{domain.mailboxes ?? 0}</td>
+                    <td>{health.label}</td>
+                  </tr>
+                );
+              })}
+              {domains.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>No domains yet. Add your first domain to begin DNS setup.</td>
                 </tr>
-              ))}
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -145,7 +154,7 @@ export default async function DashboardPage() {
                 {metrics.storageUsedGb} GB / {metrics.storageLimitGb} GB
               </strong>
               <div className="progress">
-                <span style={{ width: `${(metrics.storageUsedGb / metrics.storageLimitGb) * 100}%` }} />
+                <span style={{ width: `${usagePercent(metrics.storageUsedGb, metrics.storageLimitGb)}%` }} />
               </div>
             </div>
           </div>
@@ -179,6 +188,11 @@ export default async function DashboardPage() {
                 <td>{String(mailbox.lastLogin ?? "Not available")}</td>
               </tr>
             ))}
+            {mailboxes.length === 0 ? (
+              <tr>
+                <td colSpan={4}>No mailboxes yet. Create an address from the Mailboxes page.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </section>

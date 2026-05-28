@@ -147,6 +147,19 @@ input {
   cursor: pointer;
 }
 
+.copy-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--accent);
+  cursor: pointer;
+}
+
 .danger-icon {
   color: var(--danger);
 }
@@ -341,8 +354,10 @@ input {
 }
 
 .endpoint-list strong,
-.toggle-row strong {
+.toggle-row strong,
+.folder-row strong {
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .storage-box {
@@ -476,6 +491,25 @@ input {
     #ffffff;
   background-size: 34px 34px;
   overflow: hidden;
+}
+
+.domain-card.empty-card {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.domain-card.empty-card h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.domain-card.empty-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .domain-card::before {
@@ -716,6 +750,16 @@ input {
 
 .quota-cell {
   min-width: 170px;
+}
+
+.quota-input {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fbfcfe;
 }
 
 .split-row {

@@ -1,9 +1,9 @@
 "use client";
 
 import { apiDelete, apiPost } from "@/lib/client-api";
-import { Domain } from "@/lib/dummy-data";
+import { Domain } from "@/lib/platform-data";
 import { CheckCircle2, Clock3, Copy, Globe2, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) {
@@ -14,8 +14,12 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
   const [isPending, startTransition] = useTransition();
   const verifiedDomains = domains.filter((item) => item.status === "active").length;
   const missingRecords = domains.flatMap((item) =>
-    item.records.filter((record) => record.status !== "verified"),
+    (item.records ?? []).filter((record) => record.status !== "verified"),
   ).length;
+
+  useEffect(() => {
+    setDomains(initialDomains);
+  }, [initialDomains]);
 
   async function addDomain(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,6 +35,8 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
   }
 
   async function deleteDomain(value: string) {
+    if (!window.confirm(`Delete ${value}?`)) return;
+
     setMessage("");
     try {
       await apiDelete(`/api/domains/${encodeURIComponent(value)}`);
@@ -39,6 +45,15 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
       startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `Could not delete ${value}.`);
+    }
+  }
+
+  async function copyRecord(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage("DNS value copied.");
+    } catch {
+      setMessage("Could not copy DNS value.");
     }
   }
 
@@ -72,8 +87,9 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
         </div>
       </section>
 
-      <form className="inline-create" onSubmit={addDomain}>
+      <form className="inline-create" id="domain-create" onSubmit={addDomain}>
         <input
+          aria-label="Domain name"
           placeholder="example.com"
           value={domain}
           onChange={(event) => setDomain(event.target.value)}
@@ -123,7 +139,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
             </div>
 
             <div className="dns-stack">
-              {item.records.map((record) => (
+              {(item.records ?? []).map((record) => (
                 <div className="dns-record" key={`${item.domain}-${record.type}-${record.name}`}>
                   <div className={`dns-type ${record.status === "verified" ? "good" : "warn"}`}>
                     {record.type}
@@ -134,12 +150,19 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
                       <span
                         className={`record-state ${record.status === "verified" ? "good" : "warn"}`}
                       >
-                        {record.status === "verified" ? "Verified" : "Placeholder"}
+                        {record.status === "verified" ? "Verified" : "Missing"}
                       </span>
                     </div>
                     <div className="dns-value">
                       <span className="mono">{record.value}</span>
-                      <Copy size={15} />
+                      <button
+                        className="copy-button"
+                        type="button"
+                        title="Copy DNS value"
+                        onClick={() => void copyRecord(record.value)}
+                      >
+                        <Copy size={15} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -158,6 +181,19 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
             </div>
           </article>
         ))}
+        {domains.length === 0 ? (
+          <article className="domain-card empty-card">
+            <div className="domain-kicker">
+              <Globe2 size={16} />
+              Ready for your first domain
+            </div>
+            <h2>Add yetrixtechnologies.com or a customer domain</h2>
+            <p>
+              After you add a domain, this page shows live MX, SPF, DKIM, and DMARC status from
+              public DNS.
+            </p>
+          </article>
+        ) : null}
       </section>
     </>
   );

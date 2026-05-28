@@ -60,6 +60,12 @@ export default async function SettingsPage() {
               <span>Mailcow URL</span>
               <strong>{status.mailcow.mailcowBaseUrl}</strong>
             </div>
+            {status.mailcow.error ? (
+              <div>
+                <span>Last error</span>
+                <strong>{status.mailcow.error}</strong>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -140,6 +146,11 @@ export default async function SettingsPage() {
                 <td>{event.createdAt}</td>
               </tr>
             ))}
+            {audit.length === 0 ? (
+              <tr>
+                <td colSpan={3}>No admin actions recorded yet.</td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </section>

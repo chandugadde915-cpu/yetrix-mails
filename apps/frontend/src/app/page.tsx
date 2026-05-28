@@ -38,7 +38,7 @@ export default function LandingPage() {
               Login
               <ArrowRight size={18} />
             </Link>
-            <span className="demo-credential">admin / admin</span>
+            <span className="demo-credential">Secure admin access</span>
           </div>
         </div>
 
