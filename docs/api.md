@@ -32,6 +32,10 @@ All `/api/*` routes require:
 Authorization: Bearer <token>
 ```
 
+In the Vercel frontend, browser calls intentionally appear as `/api/backend/api/...`. The first
+`/api/backend` segment is the Next.js proxy route; the real AWS backend path is the remaining
+`/api/...` segment. This is expected and keeps dashboard auth tokens server-side.
+
 Get the token from:
 
 ```text

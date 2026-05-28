@@ -24,10 +24,18 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
   async function addDomain(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    const normalized = domain.trim().toLowerCase();
+    if (domains.some((item) => item.domain.toLowerCase() === normalized)) {
+      setMessage("Domain already exists in this workspace.");
+      return;
+    }
+
     try {
-      await apiPost("/api/domains", { domain });
+      const result = await apiPost<{ existing?: boolean; message?: string }>("/api/domains", {
+        domain: normalized,
+      });
       setDomain("");
-      setMessage("Domain added. DNS verification is ready.");
+      setMessage(result.existing ? result.message ?? "Domain already linked." : "Domain added. DNS verification is ready.");
       startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not add domain.");

@@ -64,6 +64,16 @@ export class TenancyService {
     return result.rows[0];
   }
 
+  async findDomain(domain: string) {
+    if (!this.database.enabled) return null;
+
+    const result = await this.database.query<DomainRow>(
+      "SELECT id, workspace_id, domain, status FROM domains WHERE lower(domain) = $1 LIMIT 1",
+      [domain.toLowerCase()],
+    );
+    return result.rows[0] ?? null;
+  }
+
   async recordDnsCheck(
     workspaceId: string | undefined,
     domain: string,

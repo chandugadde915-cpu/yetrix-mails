@@ -85,6 +85,9 @@ AUTH_SECRET=replace_with_a_long_random_secret
 ```
 
 The Vercel login page calls the backend `/auth/login` endpoint. The frontend stores the returned token in an HTTP-only cookie and proxies browser mutations through Next.js route handlers.
+Seeing browser requests like `/api/backend/api/mail/send` is expected: `/api/backend` is the
+Vercel/Next.js proxy, and the backend route after that is `/api/mail/send`. This keeps admin tokens
+inside HTTP-only cookies instead of exposing them to browser JavaScript.
 
 ## Backend Environment
 

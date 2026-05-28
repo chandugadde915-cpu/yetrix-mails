@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadGatewayException,
+  BadRequestException,
+  HttpException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
@@ -59,7 +66,11 @@ export class MailWorkspaceService {
     });
 
     const transport = this.smtpTransport(input);
-    await transport.verify();
+    try {
+      await transport.verify();
+    } catch (error) {
+      throw this.mailServerException(error, "verify SMTP login");
+    }
 
     return {
       imap: true,
@@ -223,18 +234,23 @@ export class MailWorkspaceService {
     const transport = this.smtpTransport({ email: input.from, password: input.password });
     const storedAttachments = await this.storeAttachments(input.attachments ?? []);
 
-    const result = await transport.sendMail({
-      from: input.from,
-      to: input.to,
-      cc: input.cc,
-      subject: input.subject,
-      text: input.text,
-      attachments: storedAttachments.map((attachment) => ({
-        filename: attachment.filename,
-        contentType: attachment.contentType,
-        path: attachment.storagePath,
-      })),
-    });
+    let result;
+    try {
+      result = await transport.sendMail({
+        from: input.from,
+        to: input.to,
+        cc: input.cc,
+        subject: input.subject,
+        text: input.text,
+        attachments: storedAttachments.map((attachment) => ({
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          path: attachment.storagePath,
+        })),
+      });
+    } catch (error) {
+      throw this.mailServerException(error, "send mail through SMTP");
+    }
     await this.saveSentCopy(input, storedAttachments).catch(() => undefined);
     await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments);
 
@@ -438,11 +454,20 @@ export class MailWorkspaceService {
       logger: false,
     });
 
-    await client.connect();
+    try {
+      await client.connect();
+    } catch (error) {
+      throw this.mailServerException(error, "connect to IMAP");
+    }
     try {
       return await task(client);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw this.mailServerException(error, "complete the mailbox operation");
     } finally {
-      await client.logout();
+      await client.logout().catch(() => undefined);
     }
   }
 
@@ -612,6 +637,36 @@ export class MailWorkspaceService {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  private mailServerException(error: unknown, action: string) {
+    const message = error instanceof Error ? error.message : String(error);
+    const lower = message.toLowerCase();
+
+    if (
+      lower.includes("authentication") ||
+      lower.includes("auth failed") ||
+      lower.includes("invalid login") ||
+      lower.includes("invalid credentials") ||
+      lower.includes("535")
+    ) {
+      return new UnauthorizedException("Mailbox email or password is incorrect");
+    }
+
+    if (
+      lower.includes("enotfound") ||
+      lower.includes("econnrefused") ||
+      lower.includes("etimedout") ||
+      lower.includes("certificate") ||
+      lower.includes("tls") ||
+      lower.includes("ssl")
+    ) {
+      return new BadGatewayException(
+        `Could not ${action}. Check MAIL_CLIENT_HOST, mail server DNS, ports 993/587, and TLS. ${message}`,
+      );
+    }
+
+    return new BadGatewayException(`Mail server could not ${action}: ${message}`);
   }
 
   private addContact(

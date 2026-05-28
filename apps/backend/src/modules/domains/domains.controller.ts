@@ -47,14 +47,39 @@ export class DomainsController {
   @Post()
   async createDomain(@Req() req: AuthenticatedRequest, @Body() body: CreateDomainDto) {
     requireRole(req, adminRoles);
+    const domain = body.domain.trim().toLowerCase();
+
     if (!isSuperAdmin(req)) {
-      await this.tenancy.ensureDomainAvailable(req.user?.workspaceId, body.domain);
+      const existingDomain = await this.tenancy.findDomain(domain);
+      if (existingDomain?.workspace_id === req.user?.workspaceId) {
+        return {
+          domain,
+          existing: true,
+          message: "Domain already exists in this workspace",
+        };
+      }
+      await this.tenancy.ensureDomainAvailable(req.user?.workspaceId, domain);
     }
-    const result = await this.mailcow.addDomain(body);
+
+    const existingMailcowDomain = await this.mailcow.findDomain(domain);
+    if (existingMailcowDomain) {
+      if (req.user?.workspaceId) {
+        await this.tenancy.recordDomain(req.user.workspaceId, domain);
+      }
+      await this.auditService.record("domain.link_existing", domain, req.user?.sub, req.user?.workspaceId);
+      return {
+        domain,
+        existing: true,
+        message: "Domain already exists in the mail engine and is linked to this workspace",
+        result: existingMailcowDomain,
+      };
+    }
+
+    const result = await this.mailcow.addDomain({ ...body, domain });
     if (req.user?.workspaceId) {
-      await this.tenancy.recordDomain(req.user.workspaceId, body.domain);
+      await this.tenancy.recordDomain(req.user.workspaceId, domain);
     }
-    await this.auditService.record("domain.create", body.domain, req.user?.sub, req.user?.workspaceId);
+    await this.auditService.record("domain.create", domain, req.user?.sub, req.user?.workspaceId);
     return result;
   }
 

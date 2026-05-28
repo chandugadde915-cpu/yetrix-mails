@@ -58,6 +58,12 @@ export class MailcowService {
     return rows.map((row) => this.normalizeDomain(row));
   }
 
+  async findDomain(domain: string) {
+    const normalized = domain.trim().toLowerCase();
+    const domains = await this.listDomains();
+    return domains.find((item) => item.domain.toLowerCase() === normalized) ?? null;
+  }
+
   async addDomain(input: { domain: string; description?: string }) {
     const domain = input.domain.trim().toLowerCase();
     const response = await this.request("POST", "/add/domain", {
