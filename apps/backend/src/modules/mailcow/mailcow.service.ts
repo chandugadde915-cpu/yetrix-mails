@@ -55,7 +55,8 @@ export class MailcowService {
   }
 
   async listDomains() {
-    const rows = await this.request<Array<Record<string, unknown>>>("GET", "/get/domain/all");
+    const response = await this.request("GET", "/get/domain/all");
+    const rows = this.asObjectRows(response);
     return rows.map((row) => this.normalizeDomain(row));
   }
 
@@ -87,7 +88,8 @@ export class MailcowService {
   }
 
   async listMailboxes() {
-    const rows = await this.request<Array<Record<string, unknown>>>("GET", "/get/mailbox/all");
+    const response = await this.request("GET", "/get/mailbox/all");
+    const rows = this.asObjectRows(response);
     return rows.map((row) => this.normalizeMailbox(row));
   }
 
@@ -156,7 +158,8 @@ export class MailcowService {
   }
 
   async listAliases() {
-    const rows = await this.request<Array<Record<string, unknown>>>("GET", "/get/alias/all");
+    const response = await this.request("GET", "/get/alias/all");
+    const rows = this.asObjectRows(response);
     return rows.map((row) => this.normalizeAlias(row));
   }
 
@@ -267,6 +270,29 @@ export class MailcowService {
       return JSON.stringify(object);
     }
     return "Unexpected Mailcow response";
+  }
+
+  private asObjectRows(value: unknown): Array<Record<string, unknown>> {
+    if (Array.isArray(value)) {
+      return value.filter(this.isObjectRow);
+    }
+
+    if (!value || typeof value !== "object") {
+      return [];
+    }
+
+    const object = value as Record<string, unknown>;
+    const nestedRows = object.data ?? object.items ?? object.response;
+
+    if (Array.isArray(nestedRows)) {
+      return nestedRows.filter(this.isObjectRow);
+    }
+
+    return Object.values(object).filter(this.isObjectRow);
+  }
+
+  private isObjectRow(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
 
   private splitEmail(email: string) {

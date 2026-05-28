@@ -10,7 +10,14 @@ export default async function AliasesPage() {
     redirect("/login");
   }
 
-  const aliases = await apiGet<AliasRow[]>("/api/aliases");
+  let aliases: AliasRow[] = [];
+  let loadError = "";
+
+  try {
+    aliases = await apiGet<AliasRow[]>("/api/aliases");
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Aliases could not be loaded.";
+  }
 
   return (
     <AppShell>
@@ -20,6 +27,11 @@ export default async function AliasesPage() {
           <p>Create forwarding addresses and catch-all style routing for each workspace.</p>
         </div>
       </div>
+      {loadError ? (
+        <div className="notice warn-notice">
+          Alias data is temporarily unavailable. {loadError}
+        </div>
+      ) : null}
       <AliasesClient initialAliases={aliases} />
     </AppShell>
   );
