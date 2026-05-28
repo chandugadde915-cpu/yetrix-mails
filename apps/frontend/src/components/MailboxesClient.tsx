@@ -1,8 +1,13 @@
 "use client";
 
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
-import { Domain, formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
+import { Domain, domainHealth, formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
 import {
+  AtSign,
+  CheckCircle2,
+  Copy,
+  Eye,
+  EyeOff,
   HardDrive,
   KeyRound,
   Mail,
@@ -16,6 +21,13 @@ import {
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+const quotaPlans = [
+  { label: "Starter", value: 1024, detail: "1 GB" },
+  { label: "Business", value: 5120, detail: "5 GB" },
+  { label: "Executive", value: 10240, detail: "10 GB" },
+  { label: "Custom", value: 0, detail: "Manual" },
+];
+
 export function MailboxesClient({
   initialMailboxes,
   domains,
@@ -24,24 +36,46 @@ export function MailboxesClient({
   domains: Domain[];
 }) {
   const router = useRouter();
-  const domainOptions = useMemo(() => domains.map((domain) => domain.domain), [domains]);
+  const domainOptions = useMemo(
+    () =>
+      domains.map((domain) => ({
+        domain: domain.domain,
+        verified: domainHealth(domain).healthy,
+      })),
+    [domains],
+  );
+  const verifiedDomainOptions = useMemo(
+    () => domainOptions.filter((domain) => domain.verified).map((domain) => domain.domain),
+    [domainOptions],
+  );
   const [mailboxes, setMailboxes] = useState(initialMailboxes);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, number>>(() =>
     Object.fromEntries(initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb ?? 0])),
   );
   const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    displayName: "",
     localPart: "",
-    domain: domainOptions[0] ?? "yetrixtechnologies.com",
-    name: "",
+    domain: verifiedDomainOptions[0] ?? domainOptions[0]?.domain ?? "yetrixtechnologies.com",
     password: "",
-    quotaMb: 2048,
+    quotaMb: 5120,
+    plan: 5120,
+    active: true,
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const activeCount = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const disabledCount = mailboxes.length - activeCount;
   const storageUsed = mailboxes.reduce((total, mailbox) => total + (mailbox.usedMb ?? 0), 0);
   const storageLimit = mailboxes.reduce((total, mailbox) => total + (mailbox.quotaMb ?? 0), 0);
+  const mailboxAddress = `${form.localPart.trim().toLowerCase() || "user"}@${form.domain}`;
+  const passwordScore = passwordStrength(form.password);
+  const hasVerifiedDomain = verifiedDomainOptions.length > 0;
+  const selectedDomainVerified = domainOptions.some(
+    (domain) => domain.domain === form.domain && domain.verified,
+  );
 
   useEffect(() => {
     setMailboxes(initialMailboxes);
@@ -51,26 +85,87 @@ export function MailboxesClient({
   }, [initialMailboxes]);
 
   useEffect(() => {
-    if (domainOptions.length > 0 && !domainOptions.includes(form.domain)) {
-      setForm((current) => ({ ...current, domain: domainOptions[0] }));
+    const preferredDomain = verifiedDomainOptions[0] ?? domainOptions[0]?.domain;
+    if (preferredDomain && !domainOptions.some((domain) => domain.domain === form.domain)) {
+      setForm((current) => ({ ...current, domain: preferredDomain }));
     }
-  }, [domainOptions, form.domain]);
+  }, [domainOptions, form.domain, verifiedDomainOptions]);
 
   async function createMailbox(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setMessage("");
+    if (!selectedDomainVerified) {
+      setMessage("Verify domain DNS before creating production mailboxes.");
+      return;
+    }
+
     const email = `${form.localPart.trim().toLowerCase()}@${form.domain}`;
     try {
       await apiPost("/api/mailboxes", {
         email,
-        name: form.name,
+        name: form.displayName || fullName(form.firstName, form.lastName) || form.localPart,
         password: form.password,
         quotaMb: form.quotaMb,
+        active: form.active,
       });
-      setMessage("Mailbox created.");
-      setForm((current) => ({ ...current, localPart: "", name: "", password: "", quotaMb: 2048 }));
+      setMessage(`${email} created. The user can open /mail-login with this address.`);
+      setForm((current) => ({
+        ...current,
+        firstName: "",
+        lastName: "",
+        displayName: "",
+        localPart: "",
+        password: "",
+        quotaMb: 5120,
+        plan: 5120,
+        active: true,
+      }));
       startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not create mailbox.");
+    }
+  }
+
+  function updatePerson(field: "firstName" | "lastName", value: string) {
+    const next = { ...form, [field]: value };
+    const previousAutoName = fullName(form.firstName, form.lastName);
+    const nextAutoName = fullName(next.firstName, next.lastName);
+    const previousAutoLocal = emailLocalPart(form.firstName, form.lastName);
+    const nextAutoLocal = emailLocalPart(next.firstName, next.lastName);
+
+    setForm({
+      ...next,
+      displayName:
+        !form.displayName || form.displayName === previousAutoName
+          ? nextAutoName
+          : form.displayName,
+      localPart:
+        !form.localPart || form.localPart === previousAutoLocal
+          ? nextAutoLocal
+          : form.localPart,
+    });
+  }
+
+  function applyQuotaPlan(value: number) {
+    setForm((current) => ({
+      ...current,
+      plan: value,
+      quotaMb: value > 0 ? value : current.quotaMb,
+    }));
+  }
+
+  function generatePassword() {
+    const password = createStrongPassword();
+    setForm((current) => ({ ...current, password }));
+    setShowPassword(true);
+  }
+
+  async function copyMailboxAddress() {
+    try {
+      await navigator.clipboard.writeText(mailboxAddress);
+      setMessage("Mailbox address copied.");
+    } catch {
+      setMessage("Could not copy mailbox address.");
     }
   }
 
@@ -173,60 +268,217 @@ export function MailboxesClient({
         </div>
       </section>
 
-      <form className="mailbox-create" id="mailbox-create" onSubmit={createMailbox}>
-        <input
-          aria-label="Mailbox username"
-          placeholder="user"
-          value={form.localPart}
-          onChange={(event) => setForm({ ...form, localPart: event.target.value })}
-          pattern="^[a-zA-Z0-9._%+-]+$"
-          required
-        />
-        <select
-          aria-label="Mailbox domain"
-          value={form.domain}
-          onChange={(event) => setForm({ ...form, domain: event.target.value })}
-          required
-        >
-          {domainOptions.map((domain) => (
-            <option key={domain} value={domain}>
-              @{domain}
-            </option>
-          ))}
-          {domainOptions.length === 0 ? (
-            <option value="yetrixtechnologies.com">@yetrixtechnologies.com</option>
-          ) : null}
-        </select>
-        <input
-          aria-label="Display name"
-          placeholder="Display name"
-          value={form.name}
-          onChange={(event) => setForm({ ...form, name: event.target.value })}
-        />
-        <input
-          aria-label="Mailbox password"
-          placeholder="Password"
-          type="password"
-          value={form.password}
-          onChange={(event) => setForm({ ...form, password: event.target.value })}
-          minLength={10}
-          required
-        />
-        <input
-          aria-label="Mailbox quota in MB"
-          min={128}
-          max={102400}
-          type="number"
-          value={form.quotaMb}
-          onChange={(event) => setForm({ ...form, quotaMb: Number(event.target.value) })}
-        />
-        <button className="button" disabled={isPending || domainOptions.length === 0}>
-          <Plus size={18} />
-          Create
-        </button>
-      </form>
-      {domainOptions.length === 0 ? (
-        <div className="notice warn-notice">Add a domain before creating production mailboxes.</div>
+      <section className="mailbox-create-suite" id="mailbox-create">
+        <form className="outlook-create-panel" onSubmit={createMailbox}>
+          <div className="create-panel-head">
+            <div>
+              <span className="eyebrow light">
+                <AtSign size={15} />
+                New mailbox
+              </span>
+              <h2>Create a business mailbox</h2>
+            </div>
+            <span className={`badge ${selectedDomainVerified ? "good" : "warn"}`}>
+              {selectedDomainVerified ? "Domain ready" : "DNS pending"}
+            </span>
+          </div>
+
+          <div className="creation-section">
+            <div className="section-number">1</div>
+            <div>
+              <h3>Identity</h3>
+              <div className="creation-grid two">
+                <label>
+                  First name
+                  <input
+                    value={form.firstName}
+                    onChange={(event) => updatePerson("firstName", event.target.value)}
+                    placeholder="Aarav"
+                  />
+                </label>
+                <label>
+                  Last name
+                  <input
+                    value={form.lastName}
+                    onChange={(event) => updatePerson("lastName", event.target.value)}
+                    placeholder="Sharma"
+                  />
+                </label>
+              </div>
+              <label>
+                Display name
+                <input
+                  value={form.displayName}
+                  onChange={(event) => setForm({ ...form, displayName: event.target.value })}
+                  placeholder="Aarav Sharma"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="creation-section">
+            <div className="section-number">2</div>
+            <div>
+              <h3>Email address</h3>
+              <div className="mail-address-builder">
+                <input
+                  aria-label="Mailbox username"
+                  placeholder="user"
+                  value={form.localPart}
+                  onChange={(event) =>
+                    setForm({ ...form, localPart: emailLocalPart(event.target.value) })
+                  }
+                  pattern="^[a-zA-Z0-9._%+-]+$"
+                  required
+                />
+                <span>@</span>
+                <select
+                  aria-label="Mailbox domain"
+                  value={form.domain}
+                  onChange={(event) => setForm({ ...form, domain: event.target.value })}
+                  required
+                >
+                  {domainOptions.map((domain) => (
+                    <option disabled={!domain.verified} key={domain.domain} value={domain.domain}>
+                      {domain.domain} {domain.verified ? "" : "(verify DNS first)"}
+                    </option>
+                  ))}
+                  {domainOptions.length === 0 ? (
+                    <option value="yetrixtechnologies.com">yetrixtechnologies.com</option>
+                  ) : null}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="creation-section">
+            <div className="section-number">3</div>
+            <div>
+              <h3>Password and storage</h3>
+              <div className="password-row">
+                <input
+                  aria-label="Mailbox password"
+                  placeholder="Temporary password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                  minLength={10}
+                  required
+                />
+                <button
+                  className="icon-button"
+                  type="button"
+                  title={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((current) => !current)}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+                <button className="button secondary" type="button" onClick={generatePassword}>
+                  <KeyRound size={17} />
+                  Generate
+                </button>
+              </div>
+              <div className="password-meter">
+                <span style={{ width: `${passwordScore}%` }} />
+              </div>
+              <div className="quota-plan-row">
+                {quotaPlans.map((plan) => (
+                  <button
+                    className={form.plan === plan.value ? "active" : ""}
+                    key={plan.label}
+                    type="button"
+                    onClick={() => applyQuotaPlan(plan.value)}
+                  >
+                    <strong>{plan.label}</strong>
+                    <span>{plan.detail}</span>
+                  </button>
+                ))}
+              </div>
+              <label>
+                Quota in MB
+                <input
+                  aria-label="Mailbox quota in MB"
+                  min={128}
+                  max={102400}
+                  type="number"
+                  value={form.quotaMb}
+                  onChange={(event) =>
+                    setForm({ ...form, quotaMb: Number(event.target.value), plan: 0 })
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          <label className="create-toggle">
+            <input
+              checked={form.active}
+              type="checkbox"
+              onChange={(event) => setForm({ ...form, active: event.target.checked })}
+            />
+            Enable mailbox immediately
+          </label>
+
+          <div className="create-footer">
+            <button
+              className="button"
+              disabled={isPending || !selectedDomainVerified || !form.localPart || !form.password}
+            >
+              <Plus size={18} />
+              Create mailbox
+            </button>
+            <a className="button secondary" href="/mail-login">
+              <Mail size={18} />
+              Mailbox login
+            </a>
+          </div>
+        </form>
+
+        <aside className="mailbox-preview-panel">
+          <div className="preview-top">
+            <span className="mailbox-avatar">{initials(form.displayName || mailboxAddress)}</span>
+            <button className="icon-button" type="button" title="Copy address" onClick={copyMailboxAddress}>
+              <Copy size={16} />
+            </button>
+          </div>
+          <h2>{form.displayName || "New mailbox user"}</h2>
+          <p className="mono">{mailboxAddress}</p>
+          <div className="preview-list">
+            <div>
+              <span>Domain</span>
+              <strong>{selectedDomainVerified ? "Verified" : "Pending DNS"}</strong>
+            </div>
+            <div>
+              <span>Quota</span>
+              <strong>{formatStorage(form.quotaMb)}</strong>
+            </div>
+            <div>
+              <span>Status</span>
+              <strong>{form.active ? "Enabled" : "Disabled"}</strong>
+            </div>
+            <div>
+              <span>Access</span>
+              <strong>/mail-login</strong>
+            </div>
+          </div>
+          <div className="preview-checks">
+            <div className={selectedDomainVerified ? "ready" : ""}>
+              <CheckCircle2 size={16} />
+              <span>DNS verified</span>
+            </div>
+            <div className={form.password.length >= 10 ? "ready" : ""}>
+              <CheckCircle2 size={16} />
+              <span>Password ready</span>
+            </div>
+            <div className={form.localPart ? "ready" : ""}>
+              <CheckCircle2 size={16} />
+              <span>Email address ready</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+      {!hasVerifiedDomain ? (
+        <div className="notice warn-notice">Verify a domain before creating production mailboxes.</div>
       ) : null}
       {message ? <div className="notice">{message}</div> : null}
 
@@ -334,4 +586,47 @@ export function MailboxesClient({
       </section>
     </>
   );
+}
+
+function fullName(firstName: string, lastName: string) {
+  return [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+}
+
+function emailLocalPart(...parts: string[]) {
+  return parts
+    .join(".")
+    .toLowerCase()
+    .replace(/[^a-z0-9._%+-]+/g, ".")
+    .replace(/\.{2,}/g, ".")
+    .replace(/^\.+|\.+$/g, "")
+    .slice(0, 64);
+}
+
+function createStrongPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const symbols = "!@$%*?";
+  const bytes = new Uint32Array(14);
+  window.crypto.getRandomValues(bytes);
+  const body = Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
+  return `${body}${symbols[bytes[0] % symbols.length]}${bytes[1] % 10}`;
+}
+
+function passwordStrength(password: string) {
+  let score = 0;
+  if (password.length >= 10) score += 30;
+  if (password.length >= 14) score += 20;
+  if (/[A-Z]/.test(password)) score += 15;
+  if (/[a-z]/.test(password)) score += 15;
+  if (/\d/.test(password)) score += 10;
+  if (/[^A-Za-z0-9]/.test(password)) score += 10;
+  return Math.min(100, score);
+}
+
+function initials(value: string) {
+  return value
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }
