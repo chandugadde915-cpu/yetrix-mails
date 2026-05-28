@@ -2,13 +2,8 @@ import { AppShell } from "@/components/AppShell";
 import { MetricCard } from "@/components/MetricCard";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusNotice } from "@/components/StatusNotice";
-import { WorkspaceFlow } from "@/components/WorkspaceFlow";
 import { requirePageSession } from "@/lib/server-api";
-import {
-  domainHealth,
-  usagePercent,
-  workspaceProgress,
-} from "@/lib/platform-data";
+import { domainHealth, usagePercent } from "@/lib/platform-data";
 import { getWorkspaceSnapshot } from "@/lib/workspace-server";
 import {
   Activity,
@@ -17,10 +12,7 @@ import {
   Inbox,
   Plus,
   RefreshCw,
-  Route,
   Send,
-  ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,7 +21,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   await requirePageSession();
 
-  const { domains, mailboxes, status, errors } = await getWorkspaceSnapshot();
+  const { domains, mailboxes, errors } = await getWorkspaceSnapshot();
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const metrics = {
     totalDomains: domains.length,
@@ -51,31 +43,6 @@ export default async function DashboardPage() {
     apiUrl: "api.yetrixtechnologies.com",
     mailHost: "mail.yetrixtechnologies.com",
   };
-  const progress = workspaceProgress(domains, mailboxes, status);
-  const nextStep = progress.steps.find((step) => !step.complete);
-  const commandHeading = progress.readyToSendReceive
-    ? "Your mail hosting flow is live."
-    : nextStep
-      ? `Next: ${nextStep.title}`
-      : "Mail workspace is preparing.";
-  const readiness = [
-    {
-      label: "Mail engine",
-      value: status.mailcow?.connected ? "Connected" : "Needs attention",
-      good: Boolean(status.mailcow?.connected),
-    },
-    {
-      label: "DNS",
-      value: `${metrics.verifiedDomains}/${metrics.totalDomains || 0} verified`,
-      good: metrics.totalDomains > 0 && metrics.verifiedDomains === metrics.totalDomains,
-    },
-    {
-      label: "Users",
-      value: `${metrics.activeMailboxes} active mailboxes`,
-      good: metrics.activeMailboxes > 0,
-    },
-  ];
-
   return (
     <AppShell>
       <PageHeader
@@ -90,67 +57,6 @@ export default async function DashboardPage() {
       />
       <StatusNotice errors={errors} />
 
-      <section className="workspace-command-center">
-        <div className="command-copy">
-          <div className="eyebrow light">
-            <Sparkles size={16} />
-            Yetrix workspace control tower
-          </div>
-          <h2>{commandHeading}</h2>
-          <p>
-            Run the complete production path from here: connect the engine, verify domain DNS,
-            provision users, open webmail, and watch operations without exposing Mailcow.
-          </p>
-          <div className="command-actions">
-            <Link className="button" href={nextStep?.href ?? "/webmail"}>
-              <Route size={18} />
-              {progress.readyToSendReceive ? "Open workspace" : "Continue flow"}
-            </Link>
-            <Link className="button secondary" href="/operations">
-              <ShieldCheck size={18} />
-              Operations
-            </Link>
-          </div>
-        </div>
-
-        <div className="mail-route-board" aria-label="Production mail route">
-          <div className="route-node">
-            <span>Customer DNS</span>
-            <strong>{metrics.totalDomains} domains</strong>
-          </div>
-          <div className="route-line">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="route-node active">
-            <span>Yetrix API</span>
-            <strong>{status.api?.healthy ? "Healthy" : "Check"}</strong>
-          </div>
-          <div className="route-line">
-            <i />
-            <i />
-            <i />
-          </div>
-          <div className="route-node">
-            <span>Mail engine</span>
-            <strong>{status.mailcow?.connected ? "Online" : "Offline"}</strong>
-          </div>
-        </div>
-
-        <div className="readiness-stack">
-          {readiness.map((item) => (
-            <div className="readiness-row" key={item.label}>
-              <span className={item.good ? "ready-dot good" : "ready-dot warn"} />
-              <div>
-                <strong>{item.label}</strong>
-                <p>{item.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <section className="metric-grid">
         <MetricCard
           icon={Globe2}
@@ -161,8 +67,6 @@ export default async function DashboardPage() {
         <MetricCard icon={Send} label="Inactive mailboxes" value={metrics.inactiveMailboxes} />
         <MetricCard icon={Activity} label="Delivery rate" value={metrics.deliveryRate} />
       </section>
-
-      <WorkspaceFlow domains={domains} mailboxes={mailboxes} status={status} />
 
       <section className="dashboard-layout section">
         <div className="panel">

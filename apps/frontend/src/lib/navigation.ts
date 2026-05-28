@@ -5,7 +5,6 @@ import {
   Globe2,
   Inbox,
   LayoutDashboard,
-  ListChecks,
   Mail,
   ShieldCheck,
   Settings,
@@ -28,7 +27,6 @@ export const navSections: NavSection[] = [
     title: "Start",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/setup", label: "Product Flow", icon: ListChecks },
     ],
   },
   {

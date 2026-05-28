@@ -51,7 +51,7 @@ Product screen assignment:
 
 ```text
 Visitor          -> Landing, Signup, Login
-Workspace admin  -> Dashboard, Product Flow, Domains, Mailboxes, Aliases, Billing, Settings
+Workspace admin  -> Dashboard, Domains, Mailboxes, Aliases, Billing, Settings
 Mailbox user     -> Mail Workspace
 Operator         -> Operations, routing, logs, health
 Superadmin       -> Superadmin global tenant console
@@ -61,7 +61,6 @@ The production workspace flow is:
 
 ```text
 Login
-  -> Launch Flow
   -> Add domain
   -> Verify MX/SPF/DKIM/DMARC
   -> Create mailbox
