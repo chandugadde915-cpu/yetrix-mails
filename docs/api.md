@@ -45,6 +45,7 @@ POST /auth/signup
 GET    /api/workspace
 PUT    /api/workspace
 POST   /api/workspace/sync
+POST   /api/me/password
 GET    /api/users
 POST   /api/users
 PUT    /api/users/:id
@@ -142,6 +143,7 @@ Update body:
 
 ```text
 POST /api/mail/connection-test
+POST /api/mail/folders
 POST /api/mail/messages
 POST /api/mail/message
 POST /api/mail/message/delete
@@ -163,6 +165,8 @@ Inbox sync body:
 {
   "email": "admin@yetrixtechnologies.com",
   "password": "MailboxPassword123!",
+  "folder": "INBOX",
+  "search": "invoice",
   "limit": 20
 }
 ```
@@ -176,6 +180,20 @@ Read or delete message body:
   "id": "123"
 }
 ```
+
+## Operations
+
+```text
+GET  /api/operations/summary
+GET  /api/operations/routing
+GET  /api/operations/dkim/:domain
+POST /api/operations/dkim/:domain
+GET  /api/operations/quarantine
+GET  /api/operations/logs
+```
+
+Operations endpoints keep Mailcow API keys backend-only and return safe fallback payloads when a
+Mailcow feature is not available on the current server version.
 
 Send body:
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
-import { Plus, Power, Save, Trash2 } from "lucide-react";
+import { AtSign, Forward, Plus, Power, Route, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,7 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
   const [form, setForm] = useState({ address: "", goto: "" });
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const activeCount = aliases.filter((alias) => alias.status === "active").length;
 
   useEffect(() => {
     setAliases(initialAliases);
@@ -84,6 +85,45 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
 
   return (
     <>
+      <section className="alias-command">
+        <div>
+          <div className="eyebrow light">
+            <Route size={16} />
+            Routing mesh
+          </div>
+          <h2>Build team addresses that route to the right mailbox without exposing Mailcow.</h2>
+          <p>
+            Use aliases for sales, support, billing, founders, or shared team routes while keeping
+            the mailbox directory clean.
+          </p>
+        </div>
+        <div className="alias-map" aria-label="Alias routing preview">
+          <div className="alias-node source">
+            <AtSign size={18} />
+            <span>Alias</span>
+          </div>
+          <div className="alias-connector">
+            <i />
+            <i />
+            <i />
+          </div>
+          <div className="alias-node target">
+            <Forward size={18} />
+            <span>Destination</span>
+          </div>
+        </div>
+        <div className="alias-stats">
+          <div>
+            <strong>{aliases.length}</strong>
+            <span>routes</span>
+          </div>
+          <div>
+            <strong>{activeCount}</strong>
+            <span>active</span>
+          </div>
+        </div>
+      </section>
+
       <form className="mailbox-create" onSubmit={createAlias}>
         <input
           aria-label="Alias address"
@@ -107,6 +147,13 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
       {message ? <div className="notice">{message}</div> : null}
 
       <section className="panel">
+        <div className="split-row">
+          <div className="title">
+            <h1>Alias Routes</h1>
+            <p>Update destinations, pause forwarding, or remove unused routes.</p>
+          </div>
+          <span className="badge good">{activeCount} active</span>
+        </div>
         <table className="table">
           <thead>
             <tr>

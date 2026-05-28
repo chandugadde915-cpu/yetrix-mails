@@ -26,6 +26,12 @@ export class MailWorkspaceController {
     return this.mailWorkspace.testConnection(body);
   }
 
+  @Post("folders")
+  async listFolders(@Req() req: AuthenticatedRequest, @Body() body: MailSessionDto) {
+    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    return this.mailWorkspace.listFolders(body);
+  }
+
   @Post("message")
   async getMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);

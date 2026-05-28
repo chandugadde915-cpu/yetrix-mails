@@ -198,6 +198,26 @@ export class MailcowService {
     return { id, result: response };
   }
 
+  async operation<T = unknown>(method: MailcowMethod, path: string, body?: unknown) {
+    return this.request<T>(method, path, body);
+  }
+
+  async safeOperation<T = unknown>(label: string, method: MailcowMethod, path: string, body?: unknown) {
+    try {
+      return {
+        label,
+        supported: true,
+        data: await this.operation<T>(method, path, body),
+      };
+    } catch (error) {
+      return {
+        label,
+        supported: false,
+        error: error instanceof Error ? error.message : "Mailcow operation failed",
+      };
+    }
+  }
+
   dnsPlaceholders(domain: string): DomainRecord[] {
     return [
       {

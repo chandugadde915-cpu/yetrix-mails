@@ -5,6 +5,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "build": "nest build",
+    "test": "npm run build && node --test test/*.test.cjs",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit"
   },

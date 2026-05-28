@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
+import { adminRoles, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { DnsService } from "../dns/dns.service";
 import { MailcowService } from "../mailcow/mailcow.service";
@@ -33,6 +34,7 @@ export class DomainsController {
 
   @Post()
   async createDomain(@Req() req: AuthenticatedRequest, @Body() body: CreateDomainDto) {
+    requireRole(req, adminRoles);
     await this.tenancy.ensureDomainAvailable(req.user?.workspaceId, body.domain);
     const result = await this.mailcow.addDomain(body);
     await this.tenancy.recordDomain(req.user?.workspaceId, body.domain);
@@ -47,6 +49,7 @@ export class DomainsController {
 
   @Delete(":domain")
   async deleteDomain(@Req() req: AuthenticatedRequest, @Param("domain") domain: string) {
+    requireRole(req, adminRoles);
     await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
     const result = await this.mailcow.deleteDomain(domain);
     await this.tenancy.removeDomain(req.user?.workspaceId, domain);

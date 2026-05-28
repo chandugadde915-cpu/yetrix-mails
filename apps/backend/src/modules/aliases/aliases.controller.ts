@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
+import { adminRoles, operatorRoles, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -25,6 +26,7 @@ export class AliasesController {
 
   @Post()
   async createAlias(@Req() req: AuthenticatedRequest, @Body() body: CreateAliasDto) {
+    requireRole(req, operatorRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.address);
     const result = await this.mailcow.addAlias(body);
     await this.tenancy.recordAlias(req.user?.workspaceId, body);
@@ -34,6 +36,7 @@ export class AliasesController {
 
   @Put(":id")
   async updateAlias(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() body: UpdateAliasDto) {
+    requireRole(req, operatorRoles);
     if (body.address) {
       await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.address);
     }
@@ -58,6 +61,7 @@ export class AliasesController {
 
   @Delete(":id")
   async deleteAlias(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    requireRole(req, adminRoles);
     if (id.includes("@")) {
       await this.tenancy.ensureEmailAccess(req.user?.workspaceId, id);
     } else {

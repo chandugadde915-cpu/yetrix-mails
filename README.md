@@ -41,6 +41,7 @@ Pages:
 /mailboxes
 /aliases
 /webmail
+/operations
 /billing
 /settings
 ```
@@ -56,6 +57,7 @@ Login
   -> Open Yetrix Mail Workspace
   -> Test mailbox login
   -> Sync inbox
+  -> Search folders
   -> Send self-test or outside test email
   -> Read/delete messages through backend IMAP/SMTP
 ```
@@ -122,4 +124,5 @@ npm --workspace apps/backend run build
 
 - The mail engine UI should remain internal/admin-only.
 - Frontend must never call the mail engine directly.
-- DNS status, CRUD, Mailcow sync, inbox sync, reading, deletion, and sending go through the backend.
+- DNS status, CRUD, Mailcow sync, operations, inbox sync, reading, deletion, and sending go through the backend.
+- Admin/operator actions are role-gated in the backend; grow this into MFA/SSO and full session management before selling to outside tenants.

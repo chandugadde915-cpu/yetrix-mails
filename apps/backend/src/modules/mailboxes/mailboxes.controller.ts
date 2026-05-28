@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
+import { adminRoles, operatorRoles, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -26,6 +27,7 @@ export class MailboxesController {
 
   @Post()
   async createMailbox(@Req() req: AuthenticatedRequest, @Body() body: CreateMailboxDto) {
+    requireRole(req, operatorRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
     const result = await this.mailcow.addMailbox(body);
     await this.tenancy.recordMailbox(req.user?.workspaceId, body);
@@ -35,6 +37,7 @@ export class MailboxesController {
 
   @Put(":email")
   async updateMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string, @Body() body: UpdateMailboxDto) {
+    requireRole(req, operatorRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
     const result = await this.mailcow.editMailbox(email, body);
     await this.tenancy.updateMailbox(req.user?.workspaceId, email, body);
@@ -44,6 +47,7 @@ export class MailboxesController {
 
   @Delete(":email")
   async deleteMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string) {
+    requireRole(req, adminRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
     const result = await this.mailcow.deleteMailbox(email);
     await this.tenancy.removeMailbox(req.user?.workspaceId, email);
@@ -53,6 +57,7 @@ export class MailboxesController {
 
   @Post(":email/password")
   async resetPassword(@Req() req: AuthenticatedRequest, @Param("email") email: string, @Body() body: ResetPasswordDto) {
+    requireRole(req, operatorRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
     const result = await this.mailcow.resetMailboxPassword(email, body.password);
     await this.auditService.record("mailbox.password", email, req.user?.sub, req.user?.workspaceId);
@@ -61,6 +66,7 @@ export class MailboxesController {
 
   @Post(":email/disable")
   async disableMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string) {
+    requireRole(req, operatorRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
     const result = await this.mailcow.setMailboxActive(email, false);
     await this.tenancy.updateMailbox(req.user?.workspaceId, email, { active: false });
@@ -70,6 +76,7 @@ export class MailboxesController {
 
   @Post(":email/enable")
   async enableMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string) {
+    requireRole(req, operatorRoles);
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
     const result = await this.mailcow.setMailboxActive(email, true);
     await this.tenancy.updateMailbox(req.user?.workspaceId, email, { active: true });

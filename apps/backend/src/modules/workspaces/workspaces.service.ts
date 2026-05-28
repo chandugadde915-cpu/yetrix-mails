@@ -1,5 +1,5 @@
-import { Injectable, ServiceUnavailableException } from "@nestjs/common";
-import { hashPassword } from "../../common/password";
+import { Injectable, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { hashPassword, verifyPassword } from "../../common/password";
 import { DatabaseService } from "../database/database.service";
 
 export interface WorkspaceRow {
@@ -14,6 +14,7 @@ export interface UserRow {
   email: string;
   username: string | null;
   name: string | null;
+  password_hash?: string;
   role: string;
   status: string;
   created_at: string;
@@ -126,6 +127,39 @@ export class WorkspacesService {
     const id = this.requireWorkspace(workspaceId);
     await this.database.query("DELETE FROM users WHERE workspace_id = $1 AND id = $2", [id, userId]);
     return { id: userId };
+  }
+
+  async changeOwnPassword(
+    workspaceId: string | undefined,
+    userId: string | undefined,
+    input: { currentPassword: string; newPassword: string },
+  ) {
+    const id = this.requireWorkspace(workspaceId);
+    if (!userId) {
+      throw new ServiceUnavailableException("User context is missing");
+    }
+
+    const result = await this.database.query<UserRow>(
+      `
+        SELECT id, email, username, name, password_hash, role, status, created_at
+        FROM users
+        WHERE workspace_id = $1 AND id = $2
+        LIMIT 1
+      `,
+      [id, userId],
+    );
+    const user = result.rows[0];
+
+    if (!user?.password_hash || !verifyPassword(input.currentPassword, user.password_hash)) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+
+    await this.database.query(
+      "UPDATE users SET password_hash = $3, updated_at = now() WHERE workspace_id = $1 AND id = $2",
+      [id, userId, hashPassword(input.newPassword)],
+    );
+
+    return { changed: true };
   }
 
   private requireWorkspace(workspaceId?: string) {

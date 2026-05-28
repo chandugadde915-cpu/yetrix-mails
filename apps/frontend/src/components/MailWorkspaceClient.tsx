@@ -2,8 +2,24 @@
 
 import { apiPost } from "@/lib/client-api";
 import { Mailbox } from "@/lib/platform-data";
-import { CheckCircle2, Eye, Inbox, RefreshCw, Send, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  FolderSync,
+  Inbox,
+  LockKeyhole,
+  RefreshCw,
+  Search,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { FormEvent, useState, useTransition } from "react";
+
+interface MailFolder {
+  path: string;
+  name: string;
+  specialUse?: string | null;
+}
 
 interface MailMessage {
   id: string;
@@ -24,11 +40,15 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active");
   const [selected, setSelected] = useState(activeMailboxes[0]?.address ?? mailboxes[0]?.address ?? "");
   const [password, setPassword] = useState("");
+  const [folder, setFolder] = useState("INBOX");
+  const [search, setSearch] = useState("");
+  const [folders, setFolders] = useState<MailFolder[]>([{ path: "INBOX", name: "Inbox" }]);
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [activeMessage, setActiveMessage] = useState<MailDetail | null>(null);
   const [compose, setCompose] = useState({ to: "", subject: "", text: "" });
   const [notice, setNotice] = useState("");
   const [isPending, startTransition] = useTransition();
+  const folderTitle = folders.find((item) => item.path === folder)?.name ?? folder;
 
   async function loadInbox(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -38,6 +58,8 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
         const data = await apiPost<MailMessage[]>("/api/mail/messages", {
           email: selected,
           password,
+          folder,
+          search: search.trim() || undefined,
           limit: 20,
         });
         setMessages(data);
@@ -64,6 +86,22 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     });
   }
 
+  async function loadFolders() {
+    setNotice("");
+    startTransition(async () => {
+      try {
+        const data = await apiPost<MailFolder[]>("/api/mail/folders", {
+          email: selected,
+          password,
+        });
+        setFolders(data.length > 0 ? data : [{ path: "INBOX", name: "Inbox" }]);
+        setNotice("Folders loaded.");
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Could not load folders.");
+      }
+    });
+  }
+
   async function openMessage(id: string) {
     setNotice("");
     startTransition(async () => {
@@ -71,6 +109,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
         const message = await apiPost<MailDetail>("/api/mail/message", {
           email: selected,
           password,
+          folder,
           id,
         });
         setActiveMessage(message);
@@ -92,6 +131,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
         await apiPost("/api/mail/message/delete", {
           email: selected,
           password,
+          folder,
           id,
         });
         setMessages((current) => current.filter((item) => item.id !== id));
@@ -141,18 +181,62 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
 
   return (
     <>
+      <section className="mail-console-hero">
+        <div>
+          <div className="eyebrow light">
+            <LockKeyhole size={16} />
+            Private mail workspace
+          </div>
+          <h2>Read, search, send, and test hosted mailboxes from your Yetrix panel.</h2>
+          <p>
+            The browser talks only to your backend. Mailbox passwords are used for this live IMAP
+            and SMTP session, while the Mailcow admin UI stays hidden.
+          </p>
+        </div>
+        <div className="mail-console-path">
+          <div>
+            <Inbox size={17} />
+            <span>Login</span>
+          </div>
+          <div>
+            <FolderSync size={17} />
+            <span>Folders</span>
+          </div>
+          <div>
+            <Search size={17} />
+            <span>Search</span>
+          </div>
+          <div>
+            <Send size={17} />
+            <span>Send</span>
+          </div>
+        </div>
+        <div className="mail-console-stats">
+          <div>
+            <strong>{activeMailboxes.length}</strong>
+            <span>active mailboxes</span>
+          </div>
+          <div>
+            <strong>{folders.length}</strong>
+            <span>loaded folders</span>
+          </div>
+        </div>
+      </section>
+
       <section className="mail-workspace-grid">
         <form className="panel mail-login-panel" onSubmit={loadInbox}>
           <div className="metric-row">
             <Inbox size={20} />
             <div className="metric">Mailbox session</div>
           </div>
+          <p className="panel-note">Select a mailbox, enter its mailbox password, then sync mail.</p>
           <select value={selected} onChange={(event) => setSelected(event.target.value)} required>
             {mailboxes.map((mailbox) => (
               <option key={mailbox.address} value={mailbox.address}>
                 {mailbox.address}
               </option>
             ))}
+            {mailboxes.length === 0 ? <option value="">Create a mailbox first</option> : null}
           </select>
           <input
             type="password"
@@ -161,9 +245,32 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
             onChange={(event) => setPassword(event.target.value)}
             required
           />
+          <div className="mail-session-row">
+            <select value={folder} onChange={(event) => setFolder(event.target.value)}>
+              {folders.map((item) => (
+                <option key={item.path} value={item.path}>
+                  {item.specialUse === "\\Sent" ? "Sent" : item.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="button secondary"
+              disabled={!selected || !password || isPending}
+              type="button"
+              onClick={() => void loadFolders()}
+            >
+              <RefreshCw size={18} />
+              Folders
+            </button>
+          </div>
+          <input
+            placeholder="Search sender, subject, or body"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
           <button className="button" disabled={!selected || !password || isPending}>
             <RefreshCw size={18} />
-            Sync inbox
+            Sync mail
           </button>
           <div className="mail-session-actions">
             <button
@@ -193,6 +300,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
             <Send size={20} />
             <div className="metric">Compose</div>
           </div>
+          <p className="panel-note">Send mail through SMTP using the selected mailbox identity.</p>
           <input
             placeholder="To"
             type="email"
@@ -221,8 +329,11 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
 
       <section className="panel section">
         <div className="title">
-          <h1>Inbox</h1>
-          <p>Recent messages loaded through the Yetrix backend using IMAP.</p>
+          <h1>{folderTitle}</h1>
+          <p>
+            Messages loaded through the Yetrix backend using IMAP
+            {search.trim() ? ` for "${search.trim()}"` : ""}.
+          </p>
         </div>
         <div className="message-list">
           {messages.map((message) => (

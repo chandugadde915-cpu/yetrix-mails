@@ -11,6 +11,7 @@ import { HealthModule } from "./health/health.module";
 import { MailcowModule } from "./mailcow/mailcow.module";
 import { MailWorkspaceModule } from "./mail-workspace/mail-workspace.module";
 import { MailboxesModule } from "./mailboxes/mailboxes.module";
+import { OperationsModule } from "./operations/operations.module";
 import { StatusModule } from "./status/status.module";
 import { TenancyModule } from "./tenancy/tenancy.module";
 import { WorkspacesModule } from "./workspaces/workspaces.module";
@@ -29,6 +30,7 @@ import { WorkspacesModule } from "./workspaces/workspaces.module";
     MailboxesModule,
     AliasesModule,
     MailWorkspaceModule,
+    OperationsModule,
     DnsModule,
     StatusModule,
   ],

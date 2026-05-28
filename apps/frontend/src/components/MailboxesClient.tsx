@@ -2,7 +2,17 @@
 
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { Domain, formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
-import { KeyRound, Mail, Plus, Power, Save, Trash2 } from "lucide-react";
+import {
+  HardDrive,
+  KeyRound,
+  Mail,
+  Plus,
+  Power,
+  Save,
+  ShieldCheck,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -28,6 +38,10 @@ export function MailboxesClient({
   });
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const activeCount = mailboxes.filter((mailbox) => mailbox.status === "active").length;
+  const disabledCount = mailboxes.length - activeCount;
+  const storageUsed = mailboxes.reduce((total, mailbox) => total + (mailbox.usedMb ?? 0), 0);
+  const storageLimit = mailboxes.reduce((total, mailbox) => total + (mailbox.quotaMb ?? 0), 0);
 
   useEffect(() => {
     setMailboxes(initialMailboxes);
@@ -108,6 +122,57 @@ export function MailboxesClient({
 
   return (
     <>
+      <section className="mailbox-command">
+        <div>
+          <div className="eyebrow light">
+            <UserPlus size={16} />
+            User provisioning
+          </div>
+          <h2>Create real mailbox users, control access, and hand them a working webmail login.</h2>
+          <p>
+            Each mailbox is provisioned through your backend into the private mail engine, then
+            becomes available in the Yetrix mail workspace and mobile mail apps.
+          </p>
+        </div>
+        <div className="mailbox-lifecycle">
+          <div className="lifecycle-step active">
+            <span>01</span>
+            <strong>Create</strong>
+          </div>
+          <div className="lifecycle-step">
+            <span>02</span>
+            <strong>Quota</strong>
+          </div>
+          <div className="lifecycle-step">
+            <span>03</span>
+            <strong>Access</strong>
+          </div>
+          <div className="lifecycle-step">
+            <span>04</span>
+            <strong>Webmail</strong>
+          </div>
+        </div>
+        <div className="mailbox-stats">
+          <div>
+            <ShieldCheck size={18} />
+            <span>Active</span>
+            <strong>{activeCount}</strong>
+          </div>
+          <div>
+            <Power size={18} />
+            <span>Disabled</span>
+            <strong>{disabledCount}</strong>
+          </div>
+          <div>
+            <HardDrive size={18} />
+            <span>Storage</span>
+            <strong>
+              {formatStorage(storageUsed)} / {formatStorage(storageLimit)}
+            </strong>
+          </div>
+        </div>
+      </section>
+
       <form className="mailbox-create" id="mailbox-create" onSubmit={createMailbox}>
         <input
           aria-label="Mailbox username"
@@ -165,7 +230,14 @@ export function MailboxesClient({
       ) : null}
       {message ? <div className="notice">{message}</div> : null}
 
-      <section className="panel">
+      <section className="panel mailbox-table-panel">
+        <div className="split-row">
+          <div className="title">
+            <h1>Mailbox Directory</h1>
+            <p>Reset passwords, update quotas, disable users, or open the mail workspace.</p>
+          </div>
+          <span className="badge good">{mailboxes.length} total</span>
+        </div>
         <table className="table">
           <thead>
             <tr>

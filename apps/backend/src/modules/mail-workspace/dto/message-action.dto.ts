@@ -1,4 +1,4 @@
-import { IsEmail, IsString } from "class-validator";
+import { IsEmail, IsOptional, IsString } from "class-validator";
 
 export class MessageActionDto {
   @IsEmail()
@@ -9,4 +9,8 @@ export class MessageActionDto {
 
   @IsString()
   id!: string;
+
+  @IsOptional()
+  @IsString()
+  folder?: string;
 }

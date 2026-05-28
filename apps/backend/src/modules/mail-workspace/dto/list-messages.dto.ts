@@ -12,4 +12,12 @@ export class ListMessagesDto {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @IsOptional()
+  @IsString()
+  folder?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

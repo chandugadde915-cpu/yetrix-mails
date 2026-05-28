@@ -26,23 +26,55 @@ export class MailWorkspaceService {
     };
   }
 
-  async listMessages(input: { email: string; password: string; limit?: number }) {
+  async listFolders(input: { email: string; password: string }) {
+    return this.withImap(input, async (client) => {
+      const folders = await client.list();
+      return folders.map((folder) => ({
+        path: folder.path,
+        name: folder.name,
+        listed: folder.listed,
+        subscribed: folder.subscribed,
+        specialUse: folder.specialUse ?? null,
+      }));
+    });
+  }
+
+  async listMessages(input: {
+    email: string;
+    password: string;
+    limit?: number;
+    folder?: string;
+    search?: string;
+  }) {
     const limit = input.limit ?? 20;
-    return this.withInbox(input, async (client) => {
+    return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       const exists = client.mailbox ? client.mailbox.exists : 0;
       if (exists === 0) {
         return [];
       }
 
-      const start = Math.max(1, exists - limit + 1);
+      const search = input.search?.trim();
+      const matched = search
+        ? await client.search({ or: [{ subject: search }, { from: search }, { text: search }] }, { uid: true })
+        : null;
+      const uidList = Array.isArray(matched) ? matched.slice(-limit) : null;
+      const range = uidList && uidList.length > 0 ? uidList : `${Math.max(1, exists - limit + 1)}:*`;
+      if (uidList && uidList.length === 0) {
+        return [];
+      }
+
       const messages = [];
-      for await (const message of client.fetch(`${start}:*`, {
-        envelope: true,
-        flags: true,
-        internalDate: true,
-        source: { maxLength: 3500 },
-        uid: true,
-      })) {
+      for await (const message of client.fetch(
+        range,
+        {
+          envelope: true,
+          flags: true,
+          internalDate: true,
+          source: { maxLength: 3500 },
+          uid: true,
+        },
+        uidList ? { uid: true } : undefined,
+      )) {
         const text = this.rawBodyText(message.source);
         messages.push({
           id: String(message.uid),
@@ -59,8 +91,8 @@ export class MailWorkspaceService {
     });
   }
 
-  async getMessage(input: { email: string; password: string; id: string }) {
-    return this.withInbox(input, async (client) => {
+  async getMessage(input: { email: string; password: string; id: string; folder?: string }) {
+    return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       const message = await client.fetchOne(
         input.id,
         {
@@ -94,8 +126,8 @@ export class MailWorkspaceService {
     });
   }
 
-  async deleteMessage(input: { email: string; password: string; id: string }) {
-    return this.withInbox(input, async (client) => {
+  async deleteMessage(input: { email: string; password: string; id: string; folder?: string }) {
+    return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       await client.messageDelete(input.id, { uid: true });
       return {
         id: input.id,
@@ -121,6 +153,7 @@ export class MailWorkspaceService {
       subject: input.subject,
       text: input.text,
     });
+    await this.saveSentCopy(input).catch(() => undefined);
 
     return {
       messageId: result.messageId,
@@ -129,12 +162,45 @@ export class MailWorkspaceService {
     };
   }
 
-  private async withInbox<T>(
+  private async saveSentCopy(input: {
+    from: string;
+    password: string;
+    to: string;
+    subject: string;
+    text: string;
+    cc?: string;
+  }) {
+    await this.withImap({ email: input.from, password: input.password }, async (client) => {
+      const folders = await client.list();
+      const sentFolder =
+        folders.find((folder) => folder.specialUse === "\\Sent")?.path ??
+        folders.find((folder) => /sent/i.test(folder.name))?.path ??
+        "Sent";
+
+      const raw = [
+        `From: ${input.from}`,
+        `To: ${input.to}`,
+        input.cc ? `Cc: ${input.cc}` : "",
+        `Subject: ${input.subject}`,
+        `Date: ${new Date().toUTCString()}`,
+        "Content-Type: text/plain; charset=utf-8",
+        "",
+        input.text,
+      ]
+        .filter(Boolean)
+        .join("\r\n");
+
+      await client.append(sentFolder, raw, ["\\Seen"], new Date());
+    });
+  }
+
+  private async withMailbox<T>(
     input: { email: string; password: string },
+    folder: string,
     task: (client: ImapFlow) => Promise<T>,
   ) {
     return this.withImap(input, async (client) => {
-      const lock = await client.getMailboxLock("INBOX");
+      const lock = await client.getMailboxLock(folder);
       try {
         return await task(client);
       } finally {
