@@ -243,6 +243,61 @@ export class WorkspacesService {
     return result.rows;
   }
 
+  async getCurrentUser(
+    workspaceId: string | undefined,
+    userId: string | undefined,
+    includeAll = false,
+    fallbackEmail?: string,
+    fallbackRole?: string,
+  ) {
+    if (!this.database.enabled || !userId) {
+      return {
+        id: userId ?? fallbackEmail ?? "session",
+        email: fallbackEmail ?? "admin",
+        username: fallbackEmail ?? "admin",
+        name: fallbackEmail ?? "Admin",
+        role: fallbackRole ?? "admin",
+        status: "active",
+        workspace_id: workspaceId,
+        workspace_name: includeAll ? "Superadmin Console" : "Workspace",
+        created_at: null,
+      };
+    }
+
+    const id = includeAll ? null : this.requireWorkspace(workspaceId);
+    const result = await this.database.query<UserRow>(
+      `
+        SELECT users.id,
+               users.workspace_id,
+               workspaces.name AS workspace_name,
+               users.email,
+               users.username,
+               users.name,
+               users.role,
+               users.status,
+               users.created_at
+        FROM users
+        LEFT JOIN workspaces ON workspaces.id = users.workspace_id
+        WHERE users.id = $2
+          AND ($1::uuid IS NULL OR users.workspace_id = $1)
+        LIMIT 1
+      `,
+      [id, userId],
+    );
+
+    return result.rows[0] ?? {
+      id: userId,
+      email: fallbackEmail ?? "admin",
+      username: fallbackEmail ?? "admin",
+      name: fallbackEmail ?? "Admin",
+      role: fallbackRole ?? "admin",
+      status: "active",
+      workspace_id: workspaceId,
+      workspace_name: includeAll ? "Superadmin Console" : "Workspace",
+      created_at: null,
+    };
+  }
+
   async createUser(
     workspaceId: string | undefined,
     input: { email: string; name: string; password: string; role?: string },

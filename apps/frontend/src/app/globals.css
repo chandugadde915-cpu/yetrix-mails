@@ -420,6 +420,101 @@ textarea {
   gap: 16px;
 }
 
+.dashboard-profile {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.profile-card,
+.profile-summary,
+.profile-quick-actions {
+  min-height: 138px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.profile-card {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+}
+
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #2563eb);
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.profile-card h2 {
+  margin: 8px 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.profile-card p {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.profile-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+}
+
+.profile-summary div {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-height: 108px;
+  padding: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.profile-summary svg {
+  color: var(--accent);
+}
+
+.profile-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.profile-summary strong {
+  overflow-wrap: anywhere;
+}
+
+.profile-quick-actions {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  min-width: 184px;
+  padding: 14px;
+}
+
 .endpoint-list {
   display: grid;
   gap: 12px;
@@ -3060,6 +3155,8 @@ textarea {
 
   .metric-grid,
   .dashboard-layout,
+  .dashboard-profile,
+  .profile-summary,
   .admin-console-hero,
   .admin-console-grid,
   .domain-command,
@@ -3184,11 +3281,16 @@ textarea {
   }
 
   .split-row,
+  .profile-card,
   .domain-card-head,
   .record-line,
   .message-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .profile-card {
+    display: flex;
   }
 
   .message-row {

@@ -24,6 +24,17 @@ export class WorkspacesController {
     return this.workspaces.getWorkspace(req.user?.workspaceId, isSuperAdmin(req));
   }
 
+  @Get("me")
+  getCurrentUser(@Req() req: AuthenticatedRequest) {
+    return this.workspaces.getCurrentUser(
+      req.user?.workspaceId,
+      req.user?.userId,
+      isSuperAdmin(req),
+      req.user?.sub,
+      req.user?.role,
+    );
+  }
+
   @Get("billing/usage")
   getBillingUsage(@Req() req: AuthenticatedRequest) {
     return this.workspaces.getBillingUsage(req.user?.workspaceId, isSuperAdmin(req));
