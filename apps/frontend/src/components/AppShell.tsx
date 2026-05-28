@@ -28,8 +28,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
         </Link>
         <div className="sidebar-status">
-          <span>Production</span>
-          <strong>Vercel + AWS</strong>
+          <span>Workspace</span>
+          <strong>Live Mail</strong>
         </div>
         <nav className="nav" aria-label="Main navigation">
           {navSections.map((section) => (

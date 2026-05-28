@@ -65,8 +65,8 @@ export function OperationsClient({
           </div>
           <h2>One cockpit for signing, routing, quarantine, and delivery signals.</h2>
           <p>
-            Yetrix keeps Mailcow behind the backend and exposes clean tenant-safe controls for
-            production operators.
+            Keep domain signing, routing, quarantine checks, and delivery activity organized for
+            every workspace.
           </p>
         </div>
         <div className="operation-radar" aria-hidden="true">
@@ -78,7 +78,7 @@ export function OperationsClient({
 
       <section className="metric-grid">
         <div className="panel">
-          <div className="metric">Mail engine</div>
+          <div className="metric">Mail service</div>
           <div className="value small-value">{summary.status?.connected ? "Online" : "Check"}</div>
         </div>
         <div className="panel">
@@ -120,7 +120,7 @@ export function OperationsClient({
         <div className="panel">
           <div className="metric-row">
             <CheckCircle2 size={20} />
-            <div className="metric">Backend capabilities</div>
+            <div className="metric">Service capabilities</div>
           </div>
           <div className="capability-list">
             {(summary.capabilities ?? []).map((capability) => (
@@ -148,7 +148,7 @@ export function OperationsClient({
           <pre className="operation-output">
             {quarantine?.supported
               ? JSON.stringify(quarantine.data, null, 2)
-              : quarantine?.error ?? "Quarantine API is not available yet."}
+              : "Quarantine data is not available yet."}
           </pre>
         </div>
       </section>
@@ -197,9 +197,10 @@ export function OperationsClient({
           {logs.map((log) => (
             <div className="log-panel" key={log.label}>
               <strong>{log.label}</strong>
-              <pre>{log.supported ? JSON.stringify(log.data, null, 2) : log.error}</pre>
+              <pre>{log.supported ? JSON.stringify(log.data, null, 2) : "Report is not available yet."}</pre>
             </div>
           ))}
+          {logs.length === 0 ? <div className="muted-text">No delivery activity found.</div> : null}
         </div>
       </section>
     </>

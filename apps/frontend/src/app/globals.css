@@ -1755,6 +1755,36 @@ textarea {
   background: #ffffff;
 }
 
+.quick-folder-grid {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.quick-folder-grid button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 800;
+  text-align: left;
+}
+
+.quick-folder-grid button.active,
+.quick-folder-grid button:hover {
+  border-color: #99f6e4;
+  background: #ecfdf5;
+  color: #115e59;
+}
+
 .outlook-folder {
   width: 100%;
   display: flex;
@@ -1789,6 +1819,43 @@ textarea {
   align-items: center;
   padding: 14px;
   border-bottom: 1px solid var(--line);
+}
+
+.advanced-search-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) repeat(3, auto);
+  gap: 8px;
+  align-items: center;
+}
+
+.advanced-search-strip label {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.advanced-search-strip label:not(:first-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.advanced-search-strip button {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.advanced-search-strip button.active,
+.advanced-search-strip button:hover {
+  border-color: #14b8a6;
+  background: #ecfdf5;
+  color: #115e59;
 }
 
 .outlook-toolbar h2 {
@@ -1845,6 +1912,24 @@ textarea {
   margin-top: 3px;
   color: #1f2937;
   font-weight: 800;
+}
+
+.starred {
+  color: #f59e0b;
+  fill: #f59e0b;
+}
+
+.thread-pill {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  min-height: 19px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #075985 !important;
+  font-size: 11px !important;
+  font-weight: 900;
 }
 
 .outlook-message em,
@@ -1918,6 +2003,12 @@ textarea {
   gap: 8px;
 }
 
+.active-icon {
+  border-color: #facc15 !important;
+  background: #fffbeb !important;
+  color: #b45309 !important;
+}
+
 .message-html {
   width: 100%;
   min-height: 360px;
@@ -1962,8 +2053,48 @@ textarea {
   gap: 10px;
 }
 
-.compose-card textarea {
+.composer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.composer-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.composer-toolbar button:hover {
+  border-color: #99f6e4;
+  color: #115e59;
+}
+
+.rich-editor {
   min-height: 120px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  line-height: 1.55;
+}
+
+.rich-editor:empty::before {
+  content: "Write your message";
+  color: var(--muted);
 }
 
 .attachment-picker {
@@ -2776,6 +2907,7 @@ textarea {
   .mail-console-hero,
   .outlook-shell,
   .outlook-toolbar,
+  .advanced-search-strip,
   .superadmin-hero,
   .superadmin-layout,
   .flow-detail-grid,

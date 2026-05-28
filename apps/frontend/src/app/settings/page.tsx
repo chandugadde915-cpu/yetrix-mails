@@ -46,9 +46,9 @@ export default async function SettingsPage() {
   ].filter(Boolean);
   const settings = {
     security: [
-      { label: "Backend bearer-token authentication", enabled: true },
-      { label: "Mail engine key backend-only", enabled: true },
-      { label: "Restricted CORS origin", enabled: true },
+      { label: "Secure admin sessions", enabled: true },
+      { label: "Protected mail controls", enabled: true },
+      { label: "Workspace-only access boundary", enabled: true },
       { label: "Workspace-scoped domain and mailbox access", enabled: true },
     ],
   };
@@ -63,24 +63,24 @@ export default async function SettingsPage() {
       <WorkspaceSyncButton />
       <section className="settings-grid section">
         <div className="panel">
-          <h2>API Status</h2>
+          <h2>Service Status</h2>
           <div className="endpoint-list">
             <div>
-              <span>Backend API</span>
+              <span>Control panel</span>
               <strong>{health.data.status === "ok" ? "Online" : "Offline"}</strong>
             </div>
             <div>
-              <span>Mail engine</span>
+              <span>Mail delivery</span>
               <strong>{status.data.mailcow.connected ? "Connected" : "Disconnected"}</strong>
             </div>
             <div>
-              <span>Engine access</span>
-              <strong>Backend only</strong>
+              <span>Access mode</span>
+              <strong>Protected</strong>
             </div>
             {status.data.mailcow.error ? (
               <div>
-                <span>Last error</span>
-                <strong>{status.data.mailcow.error}</strong>
+                <span>Last status</span>
+                <strong>Service needs attention</strong>
               </div>
             ) : null}
           </div>
@@ -132,7 +132,7 @@ export default async function SettingsPage() {
       <section className="panel section">
         <div className="title">
           <h1>Audit Log</h1>
-          <p>Recent control-panel actions recorded by the backend.</p>
+          <p>Recent control-panel actions for this workspace.</p>
         </div>
         <table className="table">
           <thead>

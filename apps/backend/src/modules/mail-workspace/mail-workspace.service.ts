@@ -98,6 +98,14 @@ export class MailWorkspaceService {
     limit?: number;
     folder?: string;
     search?: string;
+    from?: string;
+    to?: string;
+    subject?: string;
+    since?: string;
+    before?: string;
+    unreadOnly?: boolean;
+    flaggedOnly?: boolean;
+    attachmentsOnly?: boolean;
   }) {
     const limit = input.limit ?? 20;
     return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
@@ -106,12 +114,16 @@ export class MailWorkspaceService {
         return [];
       }
 
-      const search = input.search?.trim();
-      const matched = search
-        ? await client.search({ or: [{ subject: search }, { from: search }, { text: search }] }, { uid: true })
+      const criteria = this.buildSearchCriteria(input);
+      const matched = criteria
+        ? await client.search(criteria, { uid: true })
         : null;
-      const uidList = Array.isArray(matched) ? matched.slice(-limit) : null;
-      const range = uidList && uidList.length > 0 ? uidList : `${Math.max(1, exists - limit + 1)}:*`;
+      const fetchLimit = input.attachmentsOnly && !criteria ? Math.max(limit, 100) : limit;
+      const uidList = Array.isArray(matched) ? matched.slice(-fetchLimit) : null;
+      const range =
+        uidList && uidList.length > 0
+          ? uidList
+          : `${Math.max(1, exists - fetchLimit + 1)}:*`;
       if (uidList && uidList.length === 0) {
         return [];
       }
@@ -136,12 +148,28 @@ export class MailWorkspaceService {
           subject: message.envelope?.subject ?? "(No subject)",
           date: message.internalDate ? new Date(message.internalDate).toISOString() : null,
           seen: message.flags?.has("\\Seen") ?? false,
+          flagged: message.flags?.has("\\Flagged") ?? false,
           preview: this.preview(parsed.text || this.textFromHtml(parsed.html)),
           hasAttachments: parsed.attachments.length > 0,
+          threadKey: this.threadKey(message.envelope?.subject ?? "(No subject)"),
         });
       }
 
-      return messages.reverse();
+      const filteredMessages = input.attachmentsOnly
+        ? messages.filter((message) => message.hasAttachments)
+        : messages;
+      const threadCounts = filteredMessages.reduce<Record<string, number>>((counts, message) => {
+        counts[message.threadKey] = (counts[message.threadKey] ?? 0) + 1;
+        return counts;
+      }, {});
+
+      return filteredMessages
+        .slice(-limit)
+        .map((message) => ({
+          ...message,
+          threadSize: threadCounts[message.threadKey] ?? 1,
+        }))
+        .reverse();
     });
   }
 
@@ -174,6 +202,8 @@ export class MailWorkspaceService {
         subject: message.envelope?.subject ?? "(No subject)",
         date: message.internalDate ? new Date(message.internalDate).toISOString() : null,
         seen: true,
+        flagged: message.flags?.has("\\Flagged") ?? false,
+        threadKey: this.threadKey(message.envelope?.subject ?? "(No subject)"),
         text: parsed.text,
         html: parsed.html,
         attachments: parsed.attachments,
@@ -198,6 +228,20 @@ export class MailWorkspaceService {
 
   async trashMessage(input: { email: string; password: string; id: string; folder?: string }) {
     return this.moveMessage(input, "\\Trash", "Trash");
+  }
+
+  async setFlagged(input: { email: string; password: string; id: string; folder?: string }, flagged: boolean) {
+    return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
+      if (flagged) {
+        await client.messageFlagsAdd(input.id, ["\\Flagged"], { uid: true });
+      } else {
+        await client.messageFlagsRemove(input.id, ["\\Flagged"], { uid: true });
+      }
+      return {
+        id: input.id,
+        flagged,
+      };
+    });
   }
 
   async listContacts(input: { email: string; password: string; folder?: string }) {
@@ -228,6 +272,7 @@ export class MailWorkspaceService {
     to: string;
     subject: string;
     text: string;
+    html?: string;
     cc?: string;
     attachments?: SendAttachment[];
   }, workspaceId?: string) {
@@ -242,6 +287,7 @@ export class MailWorkspaceService {
         cc: input.cc,
         subject: input.subject,
         text: input.text,
+        html: input.html,
         attachments: storedAttachments.map((attachment) => ({
           filename: attachment.filename,
           contentType: attachment.contentType,
@@ -272,6 +318,7 @@ export class MailWorkspaceService {
     to: string;
     subject: string;
     text: string;
+    html?: string;
     cc?: string;
     attachments?: SendAttachment[];
   }, attachments: StoredAttachment[]) {
@@ -321,6 +368,7 @@ export class MailWorkspaceService {
       to: string;
       subject: string;
       text: string;
+      html?: string;
       cc?: string;
     },
     attachments: StoredAttachment[],
@@ -336,6 +384,7 @@ export class MailWorkspaceService {
       cc: input.cc,
       subject: input.subject,
       text: input.text,
+      html: input.html,
       attachments: attachments.map((attachment) => ({
         filename: attachment.filename,
         contentType: attachment.contentType,
@@ -482,6 +531,32 @@ export class MailWorkspaceService {
       },
       requireTLS: true,
     });
+  }
+
+  private buildSearchCriteria(input: {
+    search?: string;
+    from?: string;
+    to?: string;
+    subject?: string;
+    since?: string;
+    before?: string;
+    unreadOnly?: boolean;
+    flaggedOnly?: boolean;
+  }) {
+    const criteria: Record<string, unknown> = {};
+    const search = input.search?.trim();
+    if (search) {
+      criteria.or = [{ subject: search }, { from: search }, { text: search }];
+    }
+    if (input.from?.trim()) criteria.from = input.from.trim();
+    if (input.to?.trim()) criteria.to = input.to.trim();
+    if (input.subject?.trim()) criteria.subject = input.subject.trim();
+    if (input.since?.trim()) criteria.since = input.since.trim();
+    if (input.before?.trim()) criteria.before = input.before.trim();
+    if (input.unreadOnly) criteria.seen = false;
+    if (input.flaggedOnly) criteria.flagged = true;
+
+    return Object.keys(criteria).length > 0 ? criteria : null;
   }
 
   private parseMessageSource(source?: Buffer, includeAttachmentData = false): ParsedMessageBody {
@@ -635,6 +710,14 @@ export class MailWorkspaceService {
       .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<\/p>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private threadKey(subject: string) {
+    return subject
+      .toLowerCase()
+      .replace(/^\s*(re|fw|fwd):\s*/gi, "")
       .replace(/\s+/g, " ")
       .trim();
   }

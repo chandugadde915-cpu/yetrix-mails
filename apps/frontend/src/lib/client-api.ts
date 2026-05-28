@@ -33,7 +33,7 @@ async function apiRequest<T>(
   options: { method: "POST" | "PUT" | "DELETE"; body?: unknown; publicMailbox?: boolean },
 ): Promise<T> {
   if (!publicApiUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is not configured");
+    throw new Error("Workspace connection is not configured");
   }
 
   const targetPath =
@@ -67,7 +67,7 @@ async function apiRequest<T>(
   }
 
   if (!response.ok || payload.success === false) {
-    throw new Error(payload.error ?? "API request failed");
+    throw new Error(publicErrorMessage(payload.error));
   }
 
   return (payload.data ?? payload) as T;
@@ -84,4 +84,16 @@ async function parsePayload(response: Response) {
   } catch {
     return { success: false, error: text };
   }
+}
+
+function publicErrorMessage(message?: string) {
+  if (!message) {
+    return "Workspace request failed";
+  }
+
+  if (/(^|[^a-z])api([^a-z]|$)|backend|mailcow|mail_engine|mail engine|smtp|imap|cors|econn|enotfound|socket|tls|fetch|localhost|port\s+\d+/i.test(message)) {
+    return "Workspace service is temporarily unavailable.";
+  }
+
+  return message;
 }

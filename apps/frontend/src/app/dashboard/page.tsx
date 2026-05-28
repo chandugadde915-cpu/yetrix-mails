@@ -5,15 +5,7 @@ import { StatusNotice } from "@/components/StatusNotice";
 import { requirePageSession } from "@/lib/server-api";
 import { domainHealth, usagePercent } from "@/lib/platform-data";
 import { getWorkspaceSnapshot } from "@/lib/workspace-server";
-import {
-  Activity,
-  Database,
-  Globe2,
-  Inbox,
-  Plus,
-  RefreshCw,
-  Send,
-} from "lucide-react";
+import { Activity, Database, Globe2, Inbox, Plus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -37,17 +29,11 @@ export default async function DashboardPage() {
       mailboxes.reduce((total, mailbox) => total + (mailbox.quotaMb ?? 0), 0) / 1024,
     ),
   };
-  const workspace = {
-    region: "AWS eu-north-1",
-    frontendUrl: "www.yetrixtechnologies.com",
-    apiUrl: "api.yetrixtechnologies.com",
-    mailHost: "mail.yetrixtechnologies.com",
-  };
   return (
     <AppShell>
       <PageHeader
         title="Workspace Dashboard"
-        description="Manage domains, mailboxes, DNS status, and platform health."
+        description="Manage domains, mailboxes, DNS readiness, and workspace health."
         actions={
           <Link className="button" href="/domains#domain-create">
             <Plus size={18} />
@@ -73,7 +59,7 @@ export default async function DashboardPage() {
           <div className="topbar compact">
             <div className="title">
               <h1>Domain Health</h1>
-              <p>DNS verification status for customer domains.</p>
+              <p>Verification status for customer domains.</p>
             </div>
             <Link className="button secondary" href="/domains">
               <RefreshCw size={18} />
@@ -116,21 +102,21 @@ export default async function DashboardPage() {
 
         <div className="panel">
           <div className="title">
-            <h1>Platform</h1>
-            <p>{workspace.region}</p>
+            <h1>Workspace Capacity</h1>
+            <p>Storage and mailbox readiness for this account.</p>
           </div>
           <div className="endpoint-list">
             <div>
-              <span>Frontend</span>
-              <strong>{workspace.frontendUrl}</strong>
+              <span>Domains ready</span>
+              <strong>{metrics.verifiedDomains}</strong>
             </div>
             <div>
-              <span>API</span>
-              <strong>{workspace.apiUrl}</strong>
+              <span>Mailbox users</span>
+              <strong>{mailboxes.length}</strong>
             </div>
             <div>
-              <span>Mail host</span>
-              <strong>{workspace.mailHost}</strong>
+              <span>Delivery status</span>
+              <strong>{metrics.deliveryRate}</strong>
             </div>
           </div>
           <div className="storage-box">
@@ -150,7 +136,7 @@ export default async function DashboardPage() {
       <section className="panel section">
         <div className="title">
           <h1>Recent Mailboxes</h1>
-          <p>Recent hosted mailboxes from the backend API.</p>
+          <p>Recent mailbox activity for this workspace.</p>
         </div>
         <table className="table">
           <thead>

@@ -93,7 +93,7 @@ export default async function SuperadminPage() {
           <h2>Every workspace and mail route from one control panel.</h2>
           <p>
             Review tenant health, admin coverage, domain readiness, mailbox activity, and alias
-            routing without opening the Mailcow admin UI.
+            routing from the Yetrix owner console.
           </p>
         </div>
         <div className="superadmin-signal">
@@ -102,8 +102,8 @@ export default async function SuperadminPage() {
             <strong>All tenants</strong>
           </div>
           <div>
-            <span>Engine</span>
-            <strong>Backend only</strong>
+            <span>Access</span>
+            <strong>Protected</strong>
           </div>
           <div>
             <span>Admin role</span>
@@ -124,7 +124,7 @@ export default async function SuperadminPage() {
           <div className="split-row">
             <div className="title">
               <h1>Workspaces</h1>
-              <p>Tenant inventory from the platform database.</p>
+              <p>Tenant inventory across the platform.</p>
             </div>
             <span className="badge good">{workspaces.data.length} total</span>
           </div>
@@ -192,7 +192,7 @@ export default async function SuperadminPage() {
         <div className="panel">
           <div className="title">
             <h1>Domain Readiness</h1>
-            <p>Live DNS health returned through the backend.</p>
+            <p>Live domain health across customer workspaces.</p>
           </div>
           <table className="table">
             <thead>

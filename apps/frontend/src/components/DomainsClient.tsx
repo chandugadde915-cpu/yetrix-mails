@@ -75,8 +75,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
           </div>
           <h2>Verify ownership, secure sending, and route mail from one place.</h2>
           <p>
-            This view reads live hosted domains through your backend and checks MX, A, SPF, DKIM,
-            and DMARC against public DNS.
+            Add a domain, copy the required records, then refresh to confirm mail is ready.
           </p>
         </div>
         <div className="domain-scoreboard">
@@ -203,10 +202,10 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
               <Globe2 size={16} />
               Ready for your first domain
             </div>
-            <h2>Add yetrixtechnologies.com or a customer domain</h2>
+            <h2>Add your company domain</h2>
             <p>
-              After you add a domain, this page shows live MX, A, SPF, DKIM, and DMARC status from
-              public DNS.
+              After you add a domain, this page shows each required mail record and its current
+              verification state.
             </p>
           </article>
         ) : null}

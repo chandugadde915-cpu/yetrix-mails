@@ -108,7 +108,7 @@ export function MailboxesClient({
         quotaMb: form.quotaMb,
         active: form.active,
       });
-      setMessage(`${email} created. The user can open /mail-login with this address.`);
+      setMessage(`${email} created. The user can sign in from Mailbox login.`);
       setForm((current) => ({
         ...current,
         firstName: "",
@@ -225,8 +225,8 @@ export function MailboxesClient({
           </div>
           <h2>Create real mailbox users, control access, and hand them a working webmail login.</h2>
           <p>
-            Each mailbox is provisioned through your backend into the private mail engine, then
-            becomes available in the Yetrix mail workspace and mobile mail apps.
+            Each mailbox becomes available in the Yetrix mail workspace and can be used by the
+            owner on webmail and mobile mail apps.
           </p>
         </div>
         <div className="mailbox-lifecycle">
@@ -458,7 +458,7 @@ export function MailboxesClient({
             </div>
             <div>
               <span>Access</span>
-              <strong>/mail-login</strong>
+              <strong>Mailbox login</strong>
             </div>
           </div>
           <div className="preview-checks">

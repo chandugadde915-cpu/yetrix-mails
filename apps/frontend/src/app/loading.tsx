@@ -4,7 +4,7 @@ export default function Loading() {
       <div className="loading-box">
         <div className="loading-pulse" />
         <strong>Loading Yetrix Mails</strong>
-        <span>Checking backend and mail engine status...</span>
+        <span>Preparing your workspace...</span>
       </div>
     </main>
   );

@@ -34,6 +34,10 @@ export class SendMessageDto {
 
   @IsOptional()
   @IsString()
+  html?: string;
+
+  @IsOptional()
+  @IsString()
   cc?: string;
 
   @IsOptional()

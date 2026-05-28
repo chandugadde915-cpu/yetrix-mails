@@ -76,14 +76,14 @@ export async function apiGetSafe<T>(path: string, fallback: T): Promise<SafeApiR
     if (error instanceof ApiRequestError) {
       return {
         data: fallback,
-        error: error.message,
+        error: publicErrorMessage(error.message),
         status: error.status,
       };
     }
 
     return {
       data: fallback,
-      error: error instanceof Error ? error.message : "API request failed",
+      error: error instanceof Error ? publicErrorMessage(error.message) : "Workspace request failed",
     };
   }
 }
@@ -122,8 +122,8 @@ export async function backendRequest<T>(path: string, token?: string, init?: Req
   } catch (error) {
     throw new ApiRequestError(
       error instanceof Error
-        ? `Backend API is unreachable: ${error.message}`
-        : "Backend API is unreachable",
+        ? `Workspace service is unreachable: ${error.message}`
+        : "Workspace service is unreachable",
       502,
     );
   }
@@ -135,7 +135,7 @@ export async function backendRequest<T>(path: string, token?: string, init?: Req
   };
 
   if (!response.ok || payload.success === false) {
-    throw new ApiRequestError(payload.error ?? "API request failed", response.status);
+    throw new ApiRequestError(publicErrorMessage(payload.error), response.status);
   }
 
   return (payload.data ?? payload) as T;
@@ -144,7 +144,7 @@ export async function backendRequest<T>(path: string, token?: string, init?: Req
 function getServerApiBaseUrl() {
   const apiUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) {
-    throw new ApiRequestError("API_URL or NEXT_PUBLIC_API_URL is not configured", 500);
+    throw new ApiRequestError("Workspace connection is not configured", 500);
   }
 
   return apiUrl.replace(/\/$/, "");
@@ -181,4 +181,16 @@ async function parsePayload(response: Response) {
   } catch {
     return { success: false, error: text };
   }
+}
+
+export function publicErrorMessage(message?: string) {
+  if (!message) {
+    return "Workspace request failed";
+  }
+
+  if (/(^|[^a-z])api([^a-z]|$)|backend|mailcow|mail_engine|mail engine|smtp|imap|cors|econn|enotfound|socket|tls|fetch|localhost|port\s+\d+/i.test(message)) {
+    return "Workspace service is temporarily unavailable.";
+  }
+
+  return message;
 }

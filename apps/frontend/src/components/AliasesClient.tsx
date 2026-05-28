@@ -91,7 +91,7 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
             <Route size={16} />
             Routing mesh
           </div>
-          <h2>Build team addresses that route to the right mailbox without exposing Mailcow.</h2>
+          <h2>Build team addresses that route to the right mailbox.</h2>
           <p>
             Use aliases for sales, support, billing, founders, or shared team routes while keeping
             the mailbox directory clean.

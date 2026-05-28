@@ -37,18 +37,6 @@ export interface PlatformStatus {
   mailcow?: { connected: boolean; mailcowBaseUrl?: string; error?: string };
 }
 
-export const mailAccess = {
-  host: "mail.yetrixtechnologies.com",
-  imap: {
-    port: 993,
-    security: "SSL/TLS",
-  },
-  smtp: {
-    port: 587,
-    security: "STARTTLS",
-  },
-};
-
 export function formatStorage(mb: number) {
   if (!Number.isFinite(mb) || mb <= 0) {
     return "0 MB";
@@ -96,10 +84,10 @@ export function workspaceProgress(domains: Domain[], mailboxes: Mailbox[], statu
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active");
   const steps = [
     {
-      title: "Mail engine connected",
+      title: "Mail service connected",
       detail: status?.mailcow?.connected
-        ? "The private mail engine is reachable through the backend."
-        : "Connect the private mail engine before provisioning workspaces.",
+        ? "Mail delivery controls are ready for this workspace."
+        : "Connect mail delivery before provisioning workspaces.",
       complete: Boolean(status?.mailcow?.connected),
       href: "/settings",
     },

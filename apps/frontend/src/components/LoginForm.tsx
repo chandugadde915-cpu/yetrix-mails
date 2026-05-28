@@ -64,7 +64,7 @@ export function LoginForm() {
           <Mail size={22} />
         </div>
         <h1>Admin Login</h1>
-        <p>Enter your backend admin credentials to open the workspace dashboard.</p>
+        <p>Enter your admin credentials to open the workspace dashboard.</p>
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
             Username

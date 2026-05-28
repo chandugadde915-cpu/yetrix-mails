@@ -13,7 +13,7 @@ export default function ErrorPage({
     <main className="loading-page">
       <div className="loading-box error-box">
         <strong>Could not load this page</strong>
-        <span>{error.message || "A backend request failed while loading this workspace."}</span>
+        <span>{error.message || "The workspace could not be loaded right now."}</span>
         {error.digest ? <span className="mono">Digest {error.digest}</span> : null}
         <button className="button" type="button" onClick={reset}>
           <RefreshCw size={18} />

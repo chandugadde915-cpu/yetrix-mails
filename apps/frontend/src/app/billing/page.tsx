@@ -77,7 +77,7 @@ export default async function BillingPage() {
       <section className="panel section">
         <div className="title">
           <h1>Subscription Limits</h1>
-          <p>Plan capacity enforced from the backend billing profile.</p>
+          <p>Plan capacity for domains, users, mailboxes, and storage.</p>
         </div>
         <table className="table">
           <thead>

@@ -15,7 +15,6 @@ export function StatusNotice({
   return (
     <div className="notice warn-notice">
       {message}
-      {visibleErrors.length === 1 ? ` ${visibleErrors[0]}` : ""}
     </div>
   );
 }

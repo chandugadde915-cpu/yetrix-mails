@@ -17,7 +17,7 @@ export default async function WebmailPage() {
     <AppShell>
       <PageHeader
         title="Mail Workspace"
-        description="Read inboxes and send messages from Yetrix without opening the mail engine UI."
+        description="Read inboxes, send messages, and manage mailbox folders from Yetrix."
       />
       <StatusNotice
         errors={[mailboxesResult.error]}

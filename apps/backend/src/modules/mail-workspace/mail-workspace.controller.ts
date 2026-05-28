@@ -71,6 +71,22 @@ export class MailWorkspaceController {
     return this.mailWorkspace.trashMessage(body);
   }
 
+  @Post("message/flag")
+  async flagMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
+    return this.mailWorkspace.setFlagged(body, true);
+  }
+
+  @Post("message/unflag")
+  async unflagMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
+    return this.mailWorkspace.setFlagged(body, false);
+  }
+
   @Post("contacts")
   async listContacts(@Req() req: AuthenticatedRequest, @Body() body: MailSessionDto) {
     if (!isSuperAdmin(req)) {

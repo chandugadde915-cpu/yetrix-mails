@@ -44,6 +44,16 @@ export class MailPublicController {
     return this.mailWorkspace.trashMessage(body);
   }
 
+  @Post("message/flag")
+  flagMessage(@Body() body: MessageActionDto) {
+    return this.mailWorkspace.setFlagged(body, true);
+  }
+
+  @Post("message/unflag")
+  unflagMessage(@Body() body: MessageActionDto) {
+    return this.mailWorkspace.setFlagged(body, false);
+  }
+
   @Post("contacts")
   listContacts(@Body() body: MailSessionDto) {
     return this.mailWorkspace.listContacts(body);

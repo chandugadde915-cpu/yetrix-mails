@@ -2,10 +2,10 @@ import { ArrowRight, CheckCircle2, Mail, Network, ShieldCheck, Zap } from "lucid
 import Link from "next/link";
 
 const features = [
-  { icon: Network, label: "Domain DNS verification" },
+  { icon: Network, label: "Guided domain setup" },
   { icon: Mail, label: "Custom business mailboxes" },
-  { icon: ShieldCheck, label: "SPF, DKIM, DMARC ready" },
-  { icon: Zap, label: "Vercel plus AWS deployment" },
+  { icon: ShieldCheck, label: "Secure mail authentication" },
+  { icon: Zap, label: "Team inbox workspace" },
 ];
 
 export default function LandingPage() {
@@ -35,8 +35,8 @@ export default function LandingPage() {
           </div>
           <h1>Yetrix Mails</h1>
           <p>
-            A custom-domain email hosting platform with Vercel for the dashboard and AWS for
-            backend, SMTP, IMAP, DNS verification, and webmail infrastructure.
+            A custom-domain email workspace where teams add domains, verify records, create
+            business inboxes, and manage mail from one polished control panel.
           </p>
           <div className="hero-actions">
             <Link className="button hero-button" href="/login">
@@ -54,10 +54,10 @@ export default function LandingPage() {
         </div>
 
         <div className="mail-visual" aria-hidden="true">
-          <div className="mail-node node-a">MX</div>
+          <div className="mail-node node-a">DNS</div>
           <div className="mail-node node-b">DKIM</div>
-          <div className="mail-node node-c">IMAP</div>
-          <div className="mail-node node-d">SMTP</div>
+          <div className="mail-node node-c">Inbox</div>
+          <div className="mail-node node-d">Send</div>
           <div className="mail-route route-one" />
           <div className="mail-route route-two" />
           <div className="mail-route route-three" />

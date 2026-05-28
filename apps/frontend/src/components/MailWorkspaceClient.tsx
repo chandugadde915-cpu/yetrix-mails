@@ -4,22 +4,28 @@ import { apiPost, apiPostPublic } from "@/lib/client-api";
 import { Mailbox } from "@/lib/platform-data";
 import {
   Archive,
+  Bold,
   CheckCircle2,
   CircleX,
   Download,
   FileText,
+  Filter,
   Folder,
   Forward,
   Inbox,
+  Italic,
+  List,
   LockKeyhole,
   Paperclip,
   RefreshCw,
   Reply,
   Search,
   Send,
+  Star,
   Trash2,
+  Underline,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 interface MailFolder {
   path: string;
@@ -42,8 +48,11 @@ interface MailMessage {
   subject: string;
   date: string | null;
   seen: boolean;
+  flagged?: boolean;
   preview?: string;
   hasAttachments?: boolean;
+  threadKey?: string;
+  threadSize?: number;
 }
 
 interface MailDetail extends MailMessage {
@@ -65,6 +74,13 @@ interface MailContact {
   source: "sender" | "recipient";
 }
 
+interface ComposeState {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
 interface MailWorkspaceClientProps {
   mailboxes: Mailbox[];
   publicMode?: boolean;
@@ -84,41 +100,65 @@ export function MailWorkspaceClient({
   );
   const [password, setPassword] = useState(initialPassword);
   const [folder, setFolder] = useState("INBOX");
-  const [search, setSearch] = useState("");
   const [folders, setFolders] = useState<MailFolder[]>([{ path: "INBOX", name: "Inbox" }]);
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [contacts, setContacts] = useState<MailContact[]>([]);
   const [activeMessage, setActiveMessage] = useState<MailDetail | null>(null);
-  const [compose, setCompose] = useState({ to: "", subject: "", text: "" });
+  const [compose, setCompose] = useState<ComposeState>({ to: "", subject: "", text: "", html: "" });
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [filters, setFilters] = useState({
+    query: "",
+    from: "",
+    to: "",
+    subject: "",
+    since: "",
+    unreadOnly: false,
+    flaggedOnly: false,
+    attachmentsOnly: false,
+  });
   const [notice, setNotice] = useState("");
   const [isPending, startTransition] = useTransition();
+  const editorRef = useRef<HTMLDivElement>(null);
   const folderTitle = folders.find((item) => item.path === folder)?.name ?? folder;
+  const isDraftFolder = folder === "__drafts";
   const selectedMailbox = useMemo(
     () => mailboxes.find((mailbox) => mailbox.address === selected),
     [mailboxes, selected],
   );
   const post = publicMode ? apiPostPublic : apiPost;
   const draftKey = `yetrix-mail-draft:${publicMode ? "public" : "admin"}:${selected}`;
+  const draftMessages = useMemo(() => buildDraftMessages(draftKey, compose), [draftKey, compose]);
+  const visibleMessages = isDraftFolder ? draftMessages : messages;
 
   useEffect(() => {
     const saved = window.localStorage.getItem(draftKey);
     try {
-      setCompose(saved ? (JSON.parse(saved) as typeof compose) : { to: "", subject: "", text: "" });
+      setCompose(saved ? (JSON.parse(saved) as ComposeState) : emptyCompose());
     } catch {
-      setCompose({ to: "", subject: "", text: "" });
+      setCompose(emptyCompose());
     }
     setAttachments([]);
   }, [draftKey]);
 
   useEffect(() => {
-    if (compose.to || compose.subject || compose.text) {
+    if (editorRef.current && editorRef.current.innerHTML !== compose.html) {
+      editorRef.current.innerHTML = compose.html;
+    }
+  }, [compose.html]);
+
+  useEffect(() => {
+    if (compose.to || compose.subject || compose.text || compose.html) {
       window.localStorage.setItem(draftKey, JSON.stringify(compose));
     }
   }, [compose, draftKey]);
 
   async function loadInbox(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    if (isDraftFolder) {
+      setNotice("Drafts loaded.");
+      return;
+    }
+
     setNotice("");
     startTransition(async () => {
       try {
@@ -126,7 +166,14 @@ export function MailWorkspaceClient({
           email: selected,
           password,
           folder,
-          search: search.trim() || undefined,
+          search: filters.query.trim() || undefined,
+          from: filters.from.trim() || undefined,
+          to: filters.to.trim() || undefined,
+          subject: filters.subject.trim() || undefined,
+          since: filters.since || undefined,
+          unreadOnly: filters.unreadOnly || undefined,
+          flaggedOnly: filters.flaggedOnly || undefined,
+          attachmentsOnly: filters.attachmentsOnly || undefined,
           limit: 40,
         });
         setMessages(data);
@@ -144,7 +191,7 @@ export function MailWorkspaceClient({
     startTransition(async () => {
       try {
         await post("/api/mail/connection-test", { email: selected, password });
-        setNotice("Mailbox login, IMAP, and SMTP are working.");
+        setNotice("Mailbox login and mail delivery are working.");
         void loadFolders();
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Mailbox test failed.");
@@ -183,6 +230,13 @@ export function MailWorkspaceClient({
   }
 
   async function openMessage(id: string) {
+    if (id.startsWith("draft:")) {
+      setActiveMessage(null);
+      setNotice("Draft loaded.");
+      setFolder("__drafts");
+      return;
+    }
+
     setNotice("");
     startTransition(async () => {
       try {
@@ -198,6 +252,29 @@ export function MailWorkspaceClient({
         );
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Could not open message.");
+      }
+    });
+  }
+
+  async function toggleFlag(message: MailMessage | MailDetail) {
+    const flagged = !message.flagged;
+    setNotice("");
+    startTransition(async () => {
+      try {
+        await post(`/api/mail/message/${flagged ? "flag" : "unflag"}`, {
+          email: selected,
+          password,
+          folder,
+          id: message.id,
+        });
+        setMessages((current) =>
+          current.map((item) => (item.id === message.id ? { ...item, flagged } : item)),
+        );
+        setActiveMessage((current) =>
+          current?.id === message.id ? { ...current, flagged } : current,
+        );
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Could not update flag.");
       }
     });
   }
@@ -234,7 +311,7 @@ export function MailWorkspaceClient({
           password,
           to: selected,
           subject: `Yetrix self-test ${new Date().toLocaleString()}`,
-          text: "This confirms SMTP sending and IMAP receiving for this Yetrix mailbox.",
+          text: "This confirms sending and receiving for this Yetrix mailbox.",
         });
         setNotice("Self-test sent. Sync inbox to confirm receive.");
       } catch (error) {
@@ -253,10 +330,15 @@ export function MailWorkspaceClient({
           from: selected,
           password,
           ...compose,
+          text: compose.text || textFromHtml(compose.html),
+          html: compose.html || undefined,
           attachments: encodedAttachments,
         });
-        setCompose({ to: "", subject: "", text: "" });
+        setCompose(emptyCompose());
         setAttachments([]);
+        if (editorRef.current) {
+          editorRef.current.innerHTML = "";
+        }
         window.localStorage.removeItem(draftKey);
         setNotice(
           encodedAttachments.length > 0
@@ -275,6 +357,7 @@ export function MailWorkspaceClient({
       to: firstAddress(activeMessage.from),
       subject: activeMessage.subject.startsWith("Re:") ? activeMessage.subject : `Re: ${activeMessage.subject}`,
       text: `\n\nOn ${activeMessage.date ? new Date(activeMessage.date).toLocaleString() : "this message"}, ${activeMessage.from} wrote:\n${quoteText(activeMessage.text)}`,
+      html: `<p><br></p><blockquote>${escapeHtml(activeMessage.text).replace(/\n/g, "<br>")}</blockquote>`,
     });
   }
 
@@ -286,6 +369,9 @@ export function MailWorkspaceClient({
       text: `\n\nForwarded message\nFrom: ${activeMessage.from}\nTo: ${activeMessage.to ?? selected}\nDate: ${
         activeMessage.date ? new Date(activeMessage.date).toLocaleString() : ""
       }\n\n${activeMessage.text}`,
+      html: `<p><br></p><hr><p><strong>Forwarded message</strong></p><p>From: ${escapeHtml(activeMessage.from)}<br>To: ${escapeHtml(activeMessage.to ?? selected)}<br>Date: ${
+        activeMessage.date ? new Date(activeMessage.date).toLocaleString() : ""
+      }</p><blockquote>${escapeHtml(activeMessage.text).replace(/\n/g, "<br>")}</blockquote>`,
     });
   }
 
@@ -294,6 +380,28 @@ export function MailWorkspaceClient({
       ...current,
       to: contact.email,
     }));
+  }
+
+  function formatRichText(command: "bold" | "italic" | "underline" | "insertUnorderedList") {
+    editorRef.current?.focus();
+    document.execCommand(command);
+    updateComposeHtml();
+  }
+
+  function updateComposeHtml() {
+    const html = editorRef.current?.innerHTML ?? "";
+    setCompose((current) => ({
+      ...current,
+      html,
+      text: textFromHtml(html),
+    }));
+  }
+
+  function openQuickFolder(specialUse: string, fallback: string) {
+    const match =
+      folders.find((item) => item.specialUse === specialUse) ??
+      folders.find((item) => item.name.toLowerCase() === fallback.toLowerCase());
+    setFolder(match?.path ?? fallback);
   }
 
   return (
@@ -360,6 +468,29 @@ export function MailWorkspaceClient({
           </div>
         </div>
 
+        <div className="quick-folder-grid">
+          <button className={folder === "INBOX" ? "active" : ""} type="button" onClick={() => setFolder("INBOX")}>
+            <Inbox size={15} />
+            <span>Inbox</span>
+          </button>
+          <button type="button" onClick={() => openQuickFolder("\\Sent", "Sent")}>
+            <Send size={15} />
+            <span>Sent</span>
+          </button>
+          <button className={isDraftFolder ? "active" : ""} type="button" onClick={() => setFolder("__drafts")}>
+            <FileText size={15} />
+            <span>Drafts</span>
+          </button>
+          <button type="button" onClick={() => openQuickFolder("\\Trash", "Trash")}>
+            <Trash2 size={15} />
+            <span>Trash</span>
+          </button>
+          <button type="button" onClick={() => openQuickFolder("\\Archive", "Archive")}>
+            <Archive size={15} />
+            <span>Archive</span>
+          </button>
+        </div>
+
         <div className="folder-list">
           {folders.map((item) => (
             <button
@@ -389,27 +520,72 @@ export function MailWorkspaceClient({
       <div className="outlook-list-pane">
         <form className="outlook-toolbar" onSubmit={loadInbox}>
           <div>
-            <h2>{folderTitle}</h2>
-            <span>{messages.length} messages</span>
+            <h2>{isDraftFolder ? "Drafts" : folderTitle}</h2>
+            <span>{visibleMessages.length} messages</span>
           </div>
           <label className="search-box">
             <Search size={16} />
             <input
               placeholder="Search mail"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={filters.query}
+              onChange={(event) => setFilters({ ...filters, query: event.target.value })}
             />
           </label>
           <button className="button" disabled={!selected || !password || isPending}>
             <RefreshCw size={18} />
             Sync
           </button>
+          <div className="advanced-search-strip">
+            <label>
+              <Filter size={14} />
+              <input
+                placeholder="From"
+                value={filters.from}
+                onChange={(event) => setFilters({ ...filters, from: event.target.value })}
+              />
+            </label>
+            <label>
+              <input
+                placeholder="Subject"
+                value={filters.subject}
+                onChange={(event) => setFilters({ ...filters, subject: event.target.value })}
+              />
+            </label>
+            <label>
+              <input
+                type="date"
+                value={filters.since}
+                onChange={(event) => setFilters({ ...filters, since: event.target.value })}
+              />
+            </label>
+            <button
+              className={filters.unreadOnly ? "active" : ""}
+              type="button"
+              onClick={() => setFilters({ ...filters, unreadOnly: !filters.unreadOnly })}
+            >
+              Unread
+            </button>
+            <button
+              className={filters.flaggedOnly ? "active" : ""}
+              type="button"
+              onClick={() => setFilters({ ...filters, flaggedOnly: !filters.flaggedOnly })}
+            >
+              Starred
+            </button>
+            <button
+              className={filters.attachmentsOnly ? "active" : ""}
+              type="button"
+              onClick={() => setFilters({ ...filters, attachmentsOnly: !filters.attachmentsOnly })}
+            >
+              Files
+            </button>
+          </div>
         </form>
 
         {notice ? <div className="notice">{notice}</div> : null}
 
         <div className="outlook-message-list">
-          {messages.map((message) => (
+          {visibleMessages.map((message) => (
             <button
               className={`outlook-message ${activeMessage?.id === message.id ? "active" : ""}`}
               key={message.id}
@@ -421,14 +597,16 @@ export function MailWorkspaceClient({
                 <strong>{message.from || "Unknown sender"}</strong>
                 <small>
                   {message.subject}
+                  {message.flagged ? <Star className="starred" size={13} /> : null}
                   {message.hasAttachments ? <Paperclip size={13} /> : null}
+                  {(message.threadSize ?? 1) > 1 ? <span className="thread-pill">{message.threadSize}</span> : null}
                 </small>
                 {message.preview ? <em>{message.preview}</em> : null}
               </span>
               <time>{message.date ? new Date(message.date).toLocaleDateString() : ""}</time>
             </button>
           ))}
-          {messages.length === 0 ? (
+          {visibleMessages.length === 0 ? (
             <div className="outlook-empty">
               <Inbox size={28} />
               <strong>No messages loaded</strong>
@@ -451,6 +629,14 @@ export function MailWorkspaceClient({
                 </p>
               </div>
               <div className="message-action-row">
+                <button
+                  className={`icon-button ${activeMessage.flagged ? "active-icon" : ""}`}
+                  title={activeMessage.flagged ? "Remove star" : "Star message"}
+                  type="button"
+                  onClick={() => void toggleFlag(activeMessage)}
+                >
+                  <Star size={16} />
+                </button>
                 <button className="icon-button" title="Reply" type="button" onClick={startReply}>
                   <Reply size={16} />
                 </button>
@@ -530,11 +716,28 @@ export function MailWorkspaceClient({
             onChange={(event) => setCompose({ ...compose, subject: event.target.value })}
             required
           />
-          <textarea
-            placeholder="Write your message"
-            value={compose.text}
-            onChange={(event) => setCompose({ ...compose, text: event.target.value })}
-            required
+          <div className="composer-toolbar" aria-label="Composer formatting">
+            <button type="button" title="Bold" onClick={() => formatRichText("bold")}>
+              <Bold size={15} />
+            </button>
+            <button type="button" title="Italic" onClick={() => formatRichText("italic")}>
+              <Italic size={15} />
+            </button>
+            <button type="button" title="Underline" onClick={() => formatRichText("underline")}>
+              <Underline size={15} />
+            </button>
+            <button type="button" title="List" onClick={() => formatRichText("insertUnorderedList")}>
+              <List size={15} />
+            </button>
+          </div>
+          <div
+            aria-label="Message body"
+            className="rich-editor"
+            contentEditable
+            ref={editorRef}
+            role="textbox"
+            suppressContentEditableWarning
+            onInput={updateComposeHtml}
           />
           <label className="attachment-picker">
             <Paperclip size={17} />
@@ -555,7 +758,10 @@ export function MailWorkspaceClient({
               ))}
             </div>
           ) : null}
-          <button className="button" disabled={!selected || !password || isPending}>
+          <button
+            className="button"
+            disabled={!selected || !password || isPending || (!compose.text && !compose.html)}
+          >
             <Send size={18} />
             Send
           </button>
@@ -579,6 +785,28 @@ function readAttachment(file: File): Promise<EncodedAttachment> {
     };
     reader.readAsDataURL(file);
   });
+}
+
+function emptyCompose(): ComposeState {
+  return { to: "", subject: "", text: "", html: "" };
+}
+
+function buildDraftMessages(draftKey: string, draft: ComposeState): MailMessage[] {
+  if (!draft.to && !draft.subject && !draft.text && !draft.html) {
+    return [];
+  }
+
+  return [
+    {
+      id: `draft:${draftKey}`,
+      from: "Draft",
+      to: draft.to,
+      subject: draft.subject || "(No subject)",
+      date: null,
+      seen: true,
+      preview: draft.text || textFromHtml(draft.html),
+    },
+  ];
 }
 
 function downloadAttachment(
@@ -609,6 +837,27 @@ function quoteText(value: string) {
     .split("\n")
     .map((line) => `> ${line}`)
     .join("\n");
+}
+
+function textFromHtml(html: string) {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function initials(value: string) {

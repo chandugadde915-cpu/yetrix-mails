@@ -16,9 +16,8 @@ export default async function WorkspaceSetupPage() {
         </div>
         <h1>Workspace Needs Setup</h1>
         <p>
-          Your session is valid, but the backend did not return a workspace for this user. Login
-          again with a tenant owner account, or create a new workspace before opening dashboard
-          pages.
+          Your session is valid, but no workspace is attached to this user yet. Login again with
+          an owner account, or create a new workspace before opening dashboard pages.
         </p>
         <div className="launch-actions">
           <Link className="button" href="/login?session=expired">

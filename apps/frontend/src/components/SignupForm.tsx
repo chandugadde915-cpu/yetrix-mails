@@ -59,7 +59,7 @@ export function SignupForm() {
           <Building2 size={22} />
         </div>
         <h1>Create Workspace</h1>
-        <p>Start a tenant workspace for domains, users, mailboxes, and mail access.</p>
+        <p>Start a workspace for domains, users, mailboxes, and mail access.</p>
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
             Workspace

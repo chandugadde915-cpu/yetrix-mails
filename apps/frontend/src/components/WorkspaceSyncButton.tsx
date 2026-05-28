@@ -35,7 +35,7 @@ export function WorkspaceSyncButton() {
     <div className="sync-control">
       <button className="button secondary" type="button" disabled={isPending} onClick={sync}>
         <RefreshCw size={18} />
-        Sync Mailcow
+        Sync workspace
       </button>
       {message ? <span>{message}</span> : null}
     </div>
