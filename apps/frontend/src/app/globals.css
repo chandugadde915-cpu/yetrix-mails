@@ -1325,6 +1325,167 @@ textarea {
   color: var(--muted);
 }
 
+.admin-console-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: end;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(255, 255, 255, 0.78)),
+    #ffffff;
+}
+
+.admin-console-hero h2 {
+  max-width: 780px;
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: clamp(28px, 3vw, 46px);
+  line-height: 1.02;
+}
+
+.admin-console-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.admin-console-stats div {
+  display: grid;
+  min-width: 92px;
+  min-height: 82px;
+  place-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.admin-console-stats strong {
+  color: #0f766e;
+  font-size: 28px;
+}
+
+.admin-console-stats span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.admin-console-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-form {
+  display: grid;
+  align-content: start;
+  gap: 11px;
+}
+
+.admin-form input,
+.admin-form select,
+.admin-form textarea {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: #ffffff;
+}
+
+.admin-form textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.admin-address-row,
+.admin-password-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-password-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.admin-address-row span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.admin-route-list,
+.quarantine-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-route-row {
+  display: grid;
+  grid-template-columns: 92px minmax(160px, 0.75fr) minmax(220px, 1fr) auto auto auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.routing-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 9px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.routing-type.group {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.routing-type.catch-all {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.routing-type.shared {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.quarantine-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.quarantine-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
 .quota-cell {
   min-width: 170px;
 }
@@ -2899,6 +3060,8 @@ textarea {
 
   .metric-grid,
   .dashboard-layout,
+  .admin-console-hero,
+  .admin-console-grid,
   .domain-command,
   .domain-board,
   .mailbox-create-suite,
@@ -2920,6 +3083,10 @@ textarea {
   .inline-create,
   .mailbox-create,
   .creation-grid.two,
+  .admin-address-row,
+  .admin-password-row,
+  .admin-route-row,
+  .quarantine-row,
   .mail-address-builder,
   .password-row,
   .quota-plan-row {

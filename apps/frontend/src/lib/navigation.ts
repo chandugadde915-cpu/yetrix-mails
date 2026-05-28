@@ -6,6 +6,7 @@ import {
   Inbox,
   LayoutDashboard,
   Mail,
+  SlidersHorizontal,
   ShieldCheck,
   Settings,
   type LucideIcon,
@@ -46,6 +47,7 @@ export const navSections: NavSection[] = [
   {
     title: "Operate",
     items: [
+      { href: "/admin", label: "Admin Console", icon: SlidersHorizontal },
       { href: "/operations", label: "Operations", icon: ShieldCheck },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },

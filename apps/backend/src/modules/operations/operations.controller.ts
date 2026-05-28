@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
 import { adminRoles, isSuperAdmin, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
@@ -37,9 +37,11 @@ export class OperationsController {
       },
       capabilities: [
         "DKIM lookup and generation",
+        "Groups and shared mailbox routing",
+        "Catch-all routing",
         "Routing inventory",
-        "Quarantine visibility when available",
-        "Postfix, Dovecot, and Rspamd log visibility when available",
+        "Quarantine visibility and actions when available",
+        "Delivery log visibility when available",
       ],
     };
   }
@@ -99,6 +101,31 @@ export class OperationsController {
       : await this.tenancy.listDomainNames(req.user?.workspaceId);
     const result = await this.mailcow.safeOperation("quarantine", "GET", "/get/quarantine/all");
     return isSuperAdmin(req) ? result : this.filterOperationByDomains(result, ownedDomains ?? []);
+  }
+
+  @Post("quarantine/:id/:action")
+  async quarantineAction(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Param("action") action: string,
+  ) {
+    requireRole(req, adminRoles);
+    const normalizedAction = this.quarantineActionName(action);
+
+    if (!isSuperAdmin(req)) {
+      const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+      await this.ensureQuarantineItemAccess(id, ownedDomains ?? []);
+    }
+
+    const result =
+      normalizedAction === "delete"
+        ? await this.mailcow.safeOperation("quarantine.delete", "POST", "/delete/qitem", [id])
+        : await this.mailcow.safeOperation("quarantine.action", "POST", "/edit/qitem", {
+            items: [id],
+            attr: { action: normalizedAction },
+          });
+    await this.audit.record(`quarantine.${normalizedAction}`, id, req.user?.sub, req.user?.workspaceId);
+    return result;
   }
 
   @Get("logs")
@@ -161,5 +188,35 @@ export class OperationsController {
     const serialized = typeof value === "string" ? value : JSON.stringify(value);
     const text = (serialized ?? "").toLowerCase();
     return lowerDomains.some((domain) => text.includes(domain));
+  }
+
+  private quarantineActionName(action: string) {
+    const normalized = action.toLowerCase();
+    if (["release", "delete", "learnham", "learnspam"].includes(normalized)) {
+      return normalized;
+    }
+
+    throw new BadRequestException("Unsupported quarantine action");
+  }
+
+  private async ensureQuarantineItemAccess(id: string, domains: string[]) {
+    const quarantine = await this.mailcow.safeOperation("quarantine", "GET", "/get/quarantine/all");
+    const rows = this.operationRows(quarantine.data);
+    const item = rows.find((row) => String(row.id ?? row.qid ?? row.qhash ?? "") === id);
+    if (!item || !this.includesOwnedDomain(item, domains.map((domain) => domain.toLowerCase()))) {
+      throw new ForbiddenException("Quarantine item does not belong to this workspace");
+    }
+  }
+
+  private operationRows(value: unknown): Array<Record<string, unknown>> {
+    if (Array.isArray(value)) {
+      return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+    }
+
+    if (value && typeof value === "object") {
+      return Object.values(value as Record<string, unknown>).flatMap((item) => this.operationRows(item));
+    }
+
+    return [];
   }
 }
