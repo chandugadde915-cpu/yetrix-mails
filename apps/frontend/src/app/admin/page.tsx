@@ -4,12 +4,13 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusNotice } from "@/components/StatusNotice";
 import { Domain, Mailbox } from "@/lib/platform-data";
-import { apiGetSafe, requirePageSession } from "@/lib/server-api";
+import { apiGetSafe, requirePageRole, requirePageSession } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   await requirePageSession();
+  await requirePageRole(["superadmin", "owner", "admin"]);
 
   const [domains, mailboxes, aliases, quarantine] = await Promise.all([
     apiGetSafe<Domain[]>("/api/domains", []),

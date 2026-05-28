@@ -4,6 +4,7 @@ import { StatusNotice } from "@/components/StatusNotice";
 import { UsersClient, WorkspaceUser } from "@/components/UsersClient";
 import { WorkspaceSyncButton } from "@/components/WorkspaceSyncButton";
 import { apiGetSafe, requirePageSession } from "@/lib/server-api";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,17 @@ interface WorkspaceSummary {
   counts: { workspaces?: number; domains: number; mailboxes: number; aliases: number; users: number };
 }
 
+interface ProfileUser {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+}
+
 export default async function SettingsPage() {
   await requirePageSession();
 
-  const [health, status, workspace, users, audit] = await Promise.all([
+  const [health, status, workspace, users, audit, profile] = await Promise.all([
     apiGetSafe<{ status: string; service: string; timestamp: string }>("/health", {
       status: "offline",
       service: "ownmail-api",
@@ -36,6 +44,7 @@ export default async function SettingsPage() {
       "/api/audit",
       [],
     ),
+    apiGetSafe<ProfileUser | null>("/api/me", null),
   ]);
   const loadErrors = [
     health.error,
@@ -43,7 +52,12 @@ export default async function SettingsPage() {
     workspace.error,
     users.error,
     audit.error,
+    profile.error,
   ].filter(Boolean);
+  const currentRole = profile.data?.role ?? "viewer";
+  if (!["superadmin", "owner", "admin"].includes(currentRole)) {
+    redirect("/dashboard");
+  }
   const settings = {
     security: [
       { label: "Secure admin sessions", enabled: true },
@@ -124,9 +138,13 @@ export default async function SettingsPage() {
       <section className="panel section">
         <div className="title">
           <h1>Workspace Users</h1>
-          <p>Create admins, support users, viewers, and superadmin operators.</p>
+          <p>
+            {currentRole === "superadmin"
+              ? "Create admins, support users, viewers, and platform operators."
+              : "Create admins, support users, and viewers for this workspace."}
+          </p>
         </div>
-        <UsersClient initialUsers={users.data} />
+        <UsersClient initialUsers={users.data} currentRole={currentRole} />
       </section>
 
       <section className="panel section">

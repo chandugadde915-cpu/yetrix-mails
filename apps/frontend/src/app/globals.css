@@ -140,6 +140,25 @@ textarea {
   color: #ffffff;
 }
 
+.mailbox-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  margin-top: 18px;
+  padding: 10px 12px;
+  border: 1px solid rgba(20, 184, 166, 0.26);
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.13);
+  color: #ccfbf1;
+  font-weight: 800;
+}
+
+.mailbox-entry:hover {
+  background: rgba(20, 184, 166, 0.2);
+  color: #ffffff;
+}
+
 .logout-button {
   width: 100%;
   display: flex;
@@ -2867,6 +2886,191 @@ textarea {
   color: #dbeafe;
 }
 
+.landing-section {
+  position: relative;
+  z-index: 2;
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto 36px;
+}
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.portal-tile {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.94);
+  color: #0f172a;
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.22);
+}
+
+.portal-tile:hover {
+  border-color: rgba(20, 184, 166, 0.58);
+  transform: translateY(-2px);
+}
+
+.portal-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.portal-tile strong {
+  font-size: 23px;
+}
+
+.portal-tile p {
+  margin: 0;
+  color: #526071;
+  line-height: 1.6;
+}
+
+.portal-action {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.landing-panel {
+  padding: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.landing-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(280px, 0.7fr);
+  gap: 24px;
+  align-items: end;
+  margin-bottom: 22px;
+}
+
+.landing-section-head span,
+.landing-final span {
+  color: #5eead4;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.landing-section-head h2,
+.landing-final h2 {
+  margin: 8px 0 0;
+  font-size: clamp(30px, 5vw, 54px);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.landing-section-head p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.module-tile {
+  min-height: 172px;
+  display: grid;
+  align-content: start;
+  gap: 11px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.08);
+  color: #f8fafc;
+}
+
+.module-tile svg {
+  color: #fbbf24;
+}
+
+.module-tile strong {
+  font-size: 18px;
+}
+
+.module-tile p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+
+.role-band {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.role-card {
+  min-height: 190px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.52);
+}
+
+.role-card svg {
+  color: #99f6e4;
+}
+
+.role-card strong {
+  font-size: 20px;
+}
+
+.role-card p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.landing-final {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto 58px;
+  padding: 28px;
+  border: 1px solid rgba(20, 184, 166, 0.28);
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(20, 184, 166, 0.16), transparent 42%),
+    rgba(15, 23, 42, 0.86);
+}
+
+.landing-final-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
 .auth-page {
   min-height: 100vh;
   display: grid;
@@ -3186,6 +3390,10 @@ textarea {
   .dashboard-layout,
   .dashboard-profile,
   .profile-summary,
+  .portal-grid,
+  .module-grid,
+  .role-band,
+  .landing-section-head,
   .admin-console-hero,
   .admin-console-grid,
   .domain-command,
@@ -3245,6 +3453,11 @@ textarea {
   .feature-strip {
     grid-template-columns: 1fr;
     margin-top: 0;
+  }
+
+  .landing-final {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .auth-art {

@@ -7,12 +7,13 @@ import {
 } from "@/components/OperationsClient";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusNotice } from "@/components/StatusNotice";
-import { apiGetSafe, requirePageSession } from "@/lib/server-api";
+import { apiGetSafe, requirePageRole, requirePageSession } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperationsPage() {
   await requirePageSession();
+  await requirePageRole(["superadmin", "owner", "admin"]);
 
   const [summary, routing, quarantine, logs] = await Promise.all([
     apiGetSafe<OperationsSummary>("/api/operations/summary", {}),

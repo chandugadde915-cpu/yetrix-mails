@@ -33,6 +33,17 @@ export async function requirePageSession() {
   }
 }
 
+export async function requirePageRole(allowedRoles: string[], fallbackPath = "/dashboard") {
+  const profile = await apiGetSafe<{ role?: string | null } | null>("/api/me", null);
+  const role = profile.data?.role ?? "viewer";
+
+  if (!allowedRoles.includes(role)) {
+    redirect(fallbackPath);
+  }
+
+  return role;
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const token = await requireAuthToken();
   if (!token) {

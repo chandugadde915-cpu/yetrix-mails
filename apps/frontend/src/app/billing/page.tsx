@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
-import { apiGet, apiGetSafe, requirePageSession } from "@/lib/server-api";
+import { apiGet, apiGetSafe, requirePageRole, requirePageSession } from "@/lib/server-api";
 import { Domain, Mailbox, formatStorage } from "@/lib/platform-data";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,7 @@ interface BillingUsage {
 
 export default async function BillingPage() {
   await requirePageSession();
+  await requirePageRole(["superadmin", "owner", "admin"]);
 
   const [domains, mailboxes, billing] = await Promise.all([
     apiGet<Domain[]>("/api/domains"),

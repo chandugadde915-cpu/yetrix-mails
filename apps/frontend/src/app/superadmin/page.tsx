@@ -6,9 +6,10 @@ import type { AliasRow } from "@/components/AliasesClient";
 import type { WorkspaceUser } from "@/components/UsersClient";
 import type { Domain, Mailbox } from "@/lib/platform-data";
 import { domainHealth } from "@/lib/platform-data";
-import { apiGetSafe, requirePageSession } from "@/lib/server-api";
+import { apiGetSafe, requirePageRole, requirePageSession } from "@/lib/server-api";
 import { AtSign, Building2, Crown, Globe2, Inbox, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ interface WorkspaceInventory {
 
 export default async function SuperadminPage() {
   await requirePageSession();
+  await requirePageRole(["superadmin"]);
 
   const [workspaces, users, domains, mailboxes, aliases] = await Promise.all([
     apiGetSafe<WorkspaceInventory[]>("/api/workspaces", []),
@@ -54,25 +56,7 @@ export default async function SuperadminPage() {
   const totalPeople = users.data.length + mailboxes.data.length;
 
   if (accessDenied) {
-    return (
-      <AppShell>
-        <PageHeader
-          title="Superadmin"
-          description="Platform owner access for all workspaces and hosted mail data."
-        />
-        <section className="workspace-missing">
-          <Crown size={26} />
-          <h1>Superadmin access required</h1>
-          <p>
-            Your current session can manage its own workspace. Sign in with the platform owner
-            account to view all admins, users, domains, mailboxes, aliases, and workspace totals.
-          </p>
-          <Link className="button" href="/login">
-            Sign in as superadmin
-          </Link>
-        </section>
-      </AppShell>
-    );
+    redirect("/dashboard");
   }
 
   return (

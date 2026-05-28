@@ -17,12 +17,22 @@ export interface WorkspaceUser {
   createdAt?: string;
 }
 
-export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] }) {
+export function UsersClient({
+  initialUsers,
+  currentRole = "viewer",
+}: {
+  initialUsers: WorkspaceUser[];
+  currentRole?: string;
+}) {
   const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
   const [form, setForm] = useState({ email: "", name: "", password: "", role: "admin" });
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const canManageSuperadmins = currentRole === "superadmin";
+  const visibleUsers = canManageSuperadmins
+    ? users
+    : users.filter((user) => user.role !== "superadmin");
 
   useEffect(() => {
     setUsers(initialUsers);
@@ -99,7 +109,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
           onChange={(event) => setForm({ ...form, role: event.target.value })}
         >
           <option value="admin">Admin</option>
-          <option value="superadmin">Superadmin</option>
+          {canManageSuperadmins ? <option value="superadmin">Superadmin</option> : null}
           <option value="support">Support</option>
           <option value="viewer">Viewer</option>
         </select>
@@ -122,7 +132,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
+          {visibleUsers.map((user) => (
             <tr key={user.id}>
               <td>{user.name ?? "User"}</td>
               <td>{user.email}</td>
@@ -153,7 +163,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
               </td>
             </tr>
           ))}
-          {users.length === 0 ? (
+          {visibleUsers.length === 0 ? (
             <tr>
               <td colSpan={6}>No users yet.</td>
             </tr>
