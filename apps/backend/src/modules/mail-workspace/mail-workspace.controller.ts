@@ -2,6 +2,8 @@ import { Body, Controller, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
 import { TenancyService } from "../tenancy/tenancy.service";
 import { ListMessagesDto } from "./dto/list-messages.dto";
+import { MailSessionDto } from "./dto/mail-session.dto";
+import { MessageActionDto } from "./dto/message-action.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
 import { MailWorkspaceService } from "./mail-workspace.service";
 
@@ -16,6 +18,24 @@ export class MailWorkspaceController {
   async listMessages(@Req() req: AuthenticatedRequest, @Body() body: ListMessagesDto) {
     await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
     return this.mailWorkspace.listMessages(body);
+  }
+
+  @Post("connection-test")
+  async testConnection(@Req() req: AuthenticatedRequest, @Body() body: MailSessionDto) {
+    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    return this.mailWorkspace.testConnection(body);
+  }
+
+  @Post("message")
+  async getMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
+    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    return this.mailWorkspace.getMessage(body);
+  }
+
+  @Post("message/delete")
+  async deleteMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
+    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    return this.mailWorkspace.deleteMessage(body);
   }
 
   @Post("send")

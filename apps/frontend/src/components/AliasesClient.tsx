@@ -1,7 +1,7 @@
 "use client";
 
-import { apiDelete, apiPost } from "@/lib/client-api";
-import { Plus, Trash2 } from "lucide-react";
+import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
+import { Plus, Power, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,17 +10,22 @@ export interface AliasRow {
   address: string;
   goto: string;
   status: string;
+  active?: boolean;
 }
 
 export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }) {
   const router = useRouter();
   const [aliases, setAliases] = useState(initialAliases);
+  const [gotoDrafts, setGotoDrafts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(initialAliases.map((alias) => [alias.id, alias.goto])),
+  );
   const [form, setForm] = useState({ address: "", goto: "" });
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setAliases(initialAliases);
+    setGotoDrafts(Object.fromEntries(initialAliases.map((alias) => [alias.id, alias.goto])));
   }, [initialAliases]);
 
   async function createAlias(event: FormEvent<HTMLFormElement>) {
@@ -44,6 +49,36 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
       setMessage("Alias deleted.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not delete alias.");
+    }
+  }
+
+  async function updateAlias(id: string) {
+    try {
+      const goto = gotoDrafts[id];
+      await apiPut(`/api/aliases/${encodeURIComponent(id)}`, { goto });
+      setAliases((current) =>
+        current.map((alias) => (alias.id === id ? { ...alias, goto } : alias)),
+      );
+      setMessage("Alias updated.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not update alias.");
+    }
+  }
+
+  async function setActive(alias: AliasRow) {
+    const nextActive = alias.status !== "active";
+    try {
+      await apiPut(`/api/aliases/${encodeURIComponent(alias.id)}`, { active: nextActive });
+      setAliases((current) =>
+        current.map((item) =>
+          item.id === alias.id
+            ? { ...item, status: nextActive ? "active" : "disabled", active: nextActive }
+            : item,
+        ),
+      );
+      setMessage(`Alias ${nextActive ? "enabled" : "disabled"}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not update alias.");
     }
   }
 
@@ -85,20 +120,45 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
             {aliases.map((alias) => (
               <tr key={alias.id}>
                 <td>{alias.address}</td>
-                <td>{alias.goto}</td>
+                <td>
+                  <input
+                    aria-label={`Destination for ${alias.address}`}
+                    className="alias-input"
+                    value={gotoDrafts[alias.id] ?? alias.goto}
+                    onChange={(event) =>
+                      setGotoDrafts((current) => ({ ...current, [alias.id]: event.target.value }))
+                    }
+                  />
+                </td>
                 <td>
                   <span className={`badge ${alias.status === "active" ? "good" : "warn"}`}>
                     {alias.status}
                   </span>
                 </td>
                 <td>
-                  <button
-                    className="icon-button danger-icon"
-                    title="Delete alias"
-                    onClick={() => void deleteAlias(alias.id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="table-actions">
+                    <button
+                      className="icon-button"
+                      title="Save alias"
+                      onClick={() => void updateAlias(alias.id)}
+                    >
+                      <Save size={16} />
+                    </button>
+                    <button
+                      className="icon-button"
+                      title={alias.status === "active" ? "Disable alias" : "Enable alias"}
+                      onClick={() => void setActive(alias)}
+                    >
+                      <Power size={16} />
+                    </button>
+                    <button
+                      className="icon-button danger-icon"
+                      title="Delete alias"
+                      onClick={() => void deleteAlias(alias.id)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

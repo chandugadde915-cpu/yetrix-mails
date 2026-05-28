@@ -174,6 +174,24 @@ export class MailcowService {
     return { address: input.address.toLowerCase(), result: response };
   }
 
+  async editAlias(id: string, input: { address?: string; goto?: string; active?: boolean }) {
+    const attr: Record<string, string | boolean> = {};
+    if (input.address !== undefined) attr.address = input.address.toLowerCase();
+    if (input.goto !== undefined) attr.goto = input.goto.toLowerCase();
+    if (input.active !== undefined) attr.active = input.active ? "1" : "0";
+
+    if (Object.keys(attr).length === 0) {
+      throw new BadRequestException("At least one alias field must be provided");
+    }
+
+    const response = await this.request("POST", "/edit/alias", {
+      items: [id],
+      attr,
+    });
+    this.assertMailcowSuccess(response);
+    return { id, result: response };
+  }
+
   async deleteAlias(id: string) {
     const response = await this.request("POST", "/delete/alias", [id]);
     this.assertMailcowSuccess(response);

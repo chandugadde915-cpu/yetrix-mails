@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { UsersClient, WorkspaceUser } from "@/components/UsersClient";
+import { WorkspaceSyncButton } from "@/components/WorkspaceSyncButton";
 import { apiGet, requireAuthToken } from "@/lib/server-api";
 import { redirect } from "next/navigation";
 
@@ -44,6 +45,7 @@ export default async function SettingsPage() {
         <h1>Settings</h1>
         <p>Workspace identity, security defaults, and admin controls.</p>
       </div>
+      <WorkspaceSyncButton />
       <section className="settings-grid section">
         <div className="panel">
           <h2>API Status</h2>

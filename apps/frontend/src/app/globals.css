@@ -896,6 +896,28 @@ textarea {
   background: #fbfcfe;
 }
 
+.alias-input {
+  width: min(420px, 100%);
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fbfcfe;
+}
+
+.sync-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.sync-control span {
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .split-row {
   display: flex;
   justify-content: space-between;
@@ -929,6 +951,14 @@ textarea {
   border-radius: 8px;
   padding: 10px 12px;
   background: #fbfcfe;
+}
+
+.mail-session-actions,
+.message-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .folder-list {
@@ -976,6 +1006,41 @@ textarea {
 .message-row p {
   margin: 0;
   line-height: 1.5;
+}
+
+.message-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.message-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.message-detail-head h1 {
+  margin: 4px 0;
+  font-size: 22px;
+}
+
+.message-detail-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.message-body {
+  max-height: 520px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #1f2937;
+  font: 14px/1.55 "SFMono-Regular", Consolas, monospace;
+  white-space: pre-wrap;
+  overflow: auto;
 }
 
 .toggle-list {

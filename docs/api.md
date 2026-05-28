@@ -44,11 +44,14 @@ POST /auth/signup
 ```text
 GET    /api/workspace
 PUT    /api/workspace
+POST   /api/workspace/sync
 GET    /api/users
 POST   /api/users
 PUT    /api/users/:id
 DELETE /api/users/:id
 ```
+
+`POST /api/workspace/sync` pulls domains, mailboxes, and aliases from Mailcow and records the visible tenant-owned objects in the Yetrix workspace database.
 
 ## Domains
 
@@ -113,6 +116,7 @@ Password body:
 ```text
 GET    /api/aliases
 POST   /api/aliases
+PUT    /api/aliases/:id
 DELETE /api/aliases/:id
 ```
 
@@ -125,11 +129,32 @@ Create body:
 }
 ```
 
+Update body:
+
+```json
+{
+  "goto": "helpdesk@yetrixtechnologies.com",
+  "active": true
+}
+```
+
 ## Mail Workspace
 
 ```text
+POST /api/mail/connection-test
 POST /api/mail/messages
+POST /api/mail/message
+POST /api/mail/message/delete
 POST /api/mail/send
+```
+
+Connection test body:
+
+```json
+{
+  "email": "admin@yetrixtechnologies.com",
+  "password": "MailboxPassword123!"
+}
 ```
 
 Inbox sync body:
@@ -139,6 +164,16 @@ Inbox sync body:
   "email": "admin@yetrixtechnologies.com",
   "password": "MailboxPassword123!",
   "limit": 20
+}
+```
+
+Read or delete message body:
+
+```json
+{
+  "email": "admin@yetrixtechnologies.com",
+  "password": "MailboxPassword123!",
+  "id": "123"
 }
 ```
 

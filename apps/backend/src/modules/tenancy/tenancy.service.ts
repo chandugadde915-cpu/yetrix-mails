@@ -170,12 +170,62 @@ export class TenancyService {
 
     const domain = this.domainFromEmail(input.address);
     const domainRow = await this.ensureDomainAccess(id, domain);
+    const updated = await this.database.query(
+      `
+        UPDATE aliases
+        SET domain_id = $2,
+            goto = $4,
+            destination_email = $4,
+            is_active = $5,
+            updated_at = now()
+        WHERE workspace_id = $1 AND lower(address) = $3
+      `,
+      [id, domainRow?.id ?? null, input.address.toLowerCase(), input.goto.toLowerCase(), input.active !== false],
+    );
+
+    if (updated.rowCount) {
+      return;
+    }
+
     await this.database.query(
       `
         INSERT INTO aliases(workspace_id, domain_id, address, goto, source_email, destination_email, is_active)
         VALUES ($1, $2, $3, $4, $3, $4, $5)
       `,
       [id, domainRow?.id ?? null, input.address.toLowerCase(), input.goto.toLowerCase(), input.active !== false],
+    );
+  }
+
+  async updateAlias(
+    workspaceId: string | undefined,
+    idOrAddress: string,
+    input: { address?: string; goto?: string; active?: boolean },
+  ) {
+    const id = this.requireWorkspace(workspaceId);
+    if (!id) return;
+
+    if (input.address) {
+      await this.ensureEmailAccess(id, input.address);
+    }
+
+    await this.database.query(
+      `
+        UPDATE aliases
+        SET address = COALESCE($3, address),
+            source_email = COALESCE($3, source_email),
+            goto = COALESCE($4, goto),
+            destination_email = COALESCE($4, destination_email),
+            is_active = COALESCE($5, is_active),
+            updated_at = now()
+        WHERE workspace_id = $1 AND (id::text = $2 OR lower(address) = $2)
+      `,
+      [
+        id,
+        idOrAddress.toLowerCase(),
+        input.address?.toLowerCase() ?? null,
+        input.goto?.toLowerCase() ?? null,
+        input.active ?? null,
+      ],
     );
   }
 
