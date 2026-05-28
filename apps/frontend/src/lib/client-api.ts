@@ -1,3 +1,5 @@
+const publicApiUrl = process.env.NEXT_PUBLIC_API_URL;
+
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return apiRequest<T>(path, {
     method: "POST",
@@ -22,6 +24,10 @@ async function apiRequest<T>(
   path: string,
   options: { method: "POST" | "PUT" | "DELETE"; body?: unknown },
 ): Promise<T> {
+  if (!publicApiUrl) {
+    throw new Error("NEXT_PUBLIC_API_URL is not configured");
+  }
+
   const response = await fetch(`/api/backend${path}`, {
     method: options.method,
     headers: {
@@ -44,7 +50,8 @@ async function apiRequest<T>(
       payload.error.toLowerCase().includes("workspace context"));
 
   if (missingSession && typeof window !== "undefined") {
-    window.location.assign("/login?session=expired");
+    const target = response.status === 401 ? "/login?session=expired" : "/workspace-setup";
+    window.location.assign(target);
   }
 
   if (!response.ok || payload.success === false) {

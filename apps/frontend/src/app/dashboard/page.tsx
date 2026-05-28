@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { WorkspaceFlow } from "@/components/WorkspaceFlow";
-import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
 import { Domain, Mailbox, PlatformStatus, domainHealth, usagePercent } from "@/lib/platform-data";
 import { Activity, Database, Globe2, Inbox, Plus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
@@ -13,11 +13,18 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [domains, mailboxes, status] = await Promise.all([
-    apiGet<Domain[]>("/api/domains"),
-    apiGet<Mailbox[]>("/api/mailboxes"),
-    apiGet<PlatformStatus>("/api/status"),
+  const [domainsResult, mailboxesResult, statusResult] = await Promise.all([
+    apiGetSafe<Domain[]>("/api/domains", []),
+    apiGetSafe<Mailbox[]>("/api/mailboxes", []),
+    apiGetSafe<PlatformStatus>("/api/status", {
+      api: { healthy: false },
+      mailcow: { connected: false },
+    }),
   ]);
+  const domains = domainsResult.data;
+  const mailboxes = mailboxesResult.data;
+  const status = statusResult.data;
+  const loadErrors = [domainsResult.error, mailboxesResult.error, statusResult.error].filter(Boolean);
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const metrics = {
     totalDomains: domains.length,
@@ -52,6 +59,9 @@ export default async function DashboardPage() {
           Add domain
         </Link>
       </div>
+      {loadErrors.length > 0 ? (
+        <div className="notice warn-notice">Some workspace data is temporarily unavailable.</div>
+      ) : null}
 
       <section className="metric-grid">
         <div className="panel">

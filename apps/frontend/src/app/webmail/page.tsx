@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { MailWorkspaceClient } from "@/components/MailWorkspaceClient";
-import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
 import { Mailbox, mailAccess } from "@/lib/platform-data";
 import { Inbox, Send, Server, Smartphone } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -12,7 +12,8 @@ export default async function WebmailPage() {
     redirect("/login");
   }
 
-  const mailboxes = await apiGet<Mailbox[]>("/api/mailboxes");
+  const mailboxesResult = await apiGetSafe<Mailbox[]>("/api/mailboxes", []);
+  const mailboxes = mailboxesResult.data;
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active");
 
   return (
@@ -23,6 +24,11 @@ export default async function WebmailPage() {
           <p>Read inboxes and send messages from Yetrix without opening the mail engine UI.</p>
         </div>
       </div>
+      {mailboxesResult.error ? (
+        <div className="notice warn-notice">
+          Mailboxes are temporarily unavailable. {mailboxesResult.error}
+        </div>
+      ) : null}
 
       <MailWorkspaceClient mailboxes={mailboxes} />
 

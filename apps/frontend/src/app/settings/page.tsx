@@ -1,35 +1,50 @@
 import { AppShell } from "@/components/AppShell";
 import { UsersClient, WorkspaceUser } from "@/components/UsersClient";
 import { WorkspaceSyncButton } from "@/components/WorkspaceSyncButton";
-import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+interface WorkspaceSummary {
+  id: string;
+  name: string;
+  status: string;
+  counts: { domains: number; mailboxes: number; aliases: number; users: number };
+}
 
 export default async function SettingsPage() {
   if (!(await requireAuthToken())) {
     redirect("/login");
   }
 
-  const health = await apiGet<{
-    status: string;
-    service: string;
-    timestamp: string;
-  }>("/health");
-  const status = await apiGet<{
-    api: { healthy: boolean; timestamp: string };
-    mailcow: { connected: boolean; mailcowBaseUrl: string; error?: string };
-  }>("/api/status");
-  const workspace = await apiGet<{
-    id: string;
-    name: string;
-    status: string;
-    counts: { domains: number; mailboxes: number; aliases: number; users: number };
-  }>("/api/workspace");
-  const users = await apiGet<WorkspaceUser[]>("/api/users");
-  const audit = await apiGet<Array<{ id: string; action: string; target: string; createdAt: string }>>(
-    "/api/audit",
-  );
+  const [health, status, workspace, users, audit] = await Promise.all([
+    apiGetSafe<{ status: string; service: string; timestamp: string }>("/health", {
+      status: "offline",
+      service: "ownmail-api",
+      timestamp: "",
+    }),
+    apiGetSafe<{
+      api: { healthy: boolean; timestamp?: string };
+      mailcow: { connected: boolean; mailcowBaseUrl?: string; error?: string };
+    }>("/api/status", {
+      api: { healthy: false },
+      mailcow: { connected: false },
+    }),
+    apiGetSafe<WorkspaceSummary | null>("/api/workspace", null),
+    apiGetSafe<WorkspaceUser[]>("/api/users", []),
+    apiGetSafe<Array<{ id: string; action: string; target: string; createdAt: string }>>(
+      "/api/audit",
+      [],
+    ),
+  ]);
+  const loadErrors = [
+    health.error,
+    status.error,
+    workspace.error,
+    users.error,
+    audit.error,
+  ].filter(Boolean);
   const settings = {
     security: [
       { label: "Backend bearer-token authentication", enabled: true },
@@ -45,6 +60,9 @@ export default async function SettingsPage() {
         <h1>Settings</h1>
         <p>Workspace identity, security defaults, and admin controls.</p>
       </div>
+      {loadErrors.length > 0 ? (
+        <div className="notice warn-notice">Some settings data is temporarily unavailable.</div>
+      ) : null}
       <WorkspaceSyncButton />
       <section className="settings-grid section">
         <div className="panel">
@@ -52,20 +70,20 @@ export default async function SettingsPage() {
           <div className="endpoint-list">
             <div>
               <span>Backend API</span>
-              <strong>{health.status === "ok" ? "Online" : "Offline"}</strong>
+              <strong>{health.data.status === "ok" ? "Online" : "Offline"}</strong>
             </div>
             <div>
               <span>Mail engine</span>
-              <strong>{status.mailcow.connected ? "Connected" : "Disconnected"}</strong>
+              <strong>{status.data.mailcow.connected ? "Connected" : "Disconnected"}</strong>
             </div>
             <div>
               <span>Engine access</span>
               <strong>Backend only</strong>
             </div>
-            {status.mailcow.error ? (
+            {status.data.mailcow.error ? (
               <div>
                 <span>Last error</span>
-                <strong>{status.mailcow.error}</strong>
+                <strong>{status.data.mailcow.error}</strong>
               </div>
             ) : null}
           </div>
@@ -76,15 +94,15 @@ export default async function SettingsPage() {
           <div className="endpoint-list">
             <div>
               <span>Name</span>
-              <strong>{workspace.name}</strong>
+              <strong>{workspace.data?.name ?? "Not configured"}</strong>
             </div>
             <div>
               <span>Domains</span>
-              <strong>{workspace.counts.domains}</strong>
+              <strong>{workspace.data?.counts.domains ?? 0}</strong>
             </div>
             <div>
               <span>Users</span>
-              <strong>{workspace.counts.users}</strong>
+              <strong>{workspace.data?.counts.users ?? 0}</strong>
             </div>
           </div>
         </div>
@@ -107,7 +125,7 @@ export default async function SettingsPage() {
           <h1>Workspace Users</h1>
           <p>Create tenant admins, support users, and viewers for this workspace.</p>
         </div>
-        <UsersClient initialUsers={users} />
+        <UsersClient initialUsers={users.data} />
       </section>
 
       <section className="panel section">
@@ -124,14 +142,14 @@ export default async function SettingsPage() {
             </tr>
           </thead>
           <tbody>
-            {audit.map((event) => (
+            {audit.data.map((event) => (
               <tr key={event.id}>
                 <td>{event.action}</td>
                 <td>{event.target}</td>
                 <td>{event.createdAt}</td>
               </tr>
             ))}
-            {audit.length === 0 ? (
+            {audit.data.length === 0 ? (
               <tr>
                 <td colSpan={3}>No admin actions recorded yet.</td>
               </tr>
