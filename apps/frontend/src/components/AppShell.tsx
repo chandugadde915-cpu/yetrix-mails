@@ -1,47 +1,9 @@
 "use client";
 
-import {
-  AtSign,
-  CreditCard,
-  Globe2,
-  Inbox,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  Mail,
-  ShieldCheck,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { navSections } from "@/lib/navigation";
+import { LogOut, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
-const navSections = [
-  {
-    title: "Launch",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/setup", label: "Launch Flow", icon: ListChecks },
-      { href: "/domains", label: "Domains", icon: Globe2 },
-      { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
-      { href: "/aliases", label: "Aliases", icon: AtSign },
-    ],
-  },
-  {
-    title: "Workspace",
-    items: [
-      { href: "/webmail", label: "Mail Workspace", icon: Mail },
-      { href: "/operations", label: "Operations", icon: ShieldCheck },
-    ],
-  },
-  {
-    title: "Business",
-    items: [
-      { href: "/billing", label: "Billing", icon: CreditCard },
-      { href: "/settings", label: "Settings", icon: Settings },
-    ],
-  },
-];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

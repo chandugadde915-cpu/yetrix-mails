@@ -1,8 +1,9 @@
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusNotice } from "@/components/StatusNotice";
 import { UsersClient, WorkspaceUser } from "@/components/UsersClient";
 import { WorkspaceSyncButton } from "@/components/WorkspaceSyncButton";
-import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
-import { redirect } from "next/navigation";
+import { apiGetSafe, requirePageSession } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +15,7 @@ interface WorkspaceSummary {
 }
 
 export default async function SettingsPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   const [health, status, workspace, users, audit] = await Promise.all([
     apiGetSafe<{ status: string; service: string; timestamp: string }>("/health", {
@@ -56,13 +55,11 @@ export default async function SettingsPage() {
 
   return (
     <AppShell>
-      <div className="title">
-        <h1>Settings</h1>
-        <p>Workspace identity, security defaults, and admin controls.</p>
-      </div>
-      {loadErrors.length > 0 ? (
-        <div className="notice warn-notice">Some settings data is temporarily unavailable.</div>
-      ) : null}
+      <PageHeader
+        title="Settings"
+        description="Workspace identity, security defaults, and admin controls."
+      />
+      <StatusNotice errors={loadErrors} message="Some settings data is temporarily unavailable." />
       <WorkspaceSyncButton />
       <section className="settings-grid section">
         <div className="panel">

@@ -1,15 +1,12 @@
 import { AppShell } from "@/components/AppShell";
-import { requireAuthToken } from "@/lib/server-api";
+import { requirePageSession } from "@/lib/server-api";
 import { AlertTriangle, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkspaceSetupPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   return (
     <AppShell>

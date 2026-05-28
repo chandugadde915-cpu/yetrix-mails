@@ -5,15 +5,14 @@ import {
   OperationsSummary,
   RoutingData,
 } from "@/components/OperationsClient";
-import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
-import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusNotice } from "@/components/StatusNotice";
+import { apiGetSafe, requirePageSession } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperationsPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   const [summary, routing, quarantine, logs] = await Promise.all([
     apiGetSafe<OperationsSummary>("/api/operations/summary", {}),
@@ -24,15 +23,14 @@ export default async function OperationsPage() {
 
   return (
     <AppShell>
-      <div className="topbar">
-        <div className="title">
-          <h1>Operations</h1>
-          <p>Mail signing, routing, quarantine, and delivery visibility for the workspace.</p>
-        </div>
-      </div>
-      {[summary.error, routing.error, quarantine.error, logs.error].filter(Boolean).length > 0 ? (
-        <div className="notice warn-notice">Some operations data is temporarily unavailable.</div>
-      ) : null}
+      <PageHeader
+        title="Operations"
+        description="Mail signing, routing, quarantine, and delivery visibility for the workspace."
+      />
+      <StatusNotice
+        errors={[summary.error, routing.error, quarantine.error, logs.error]}
+        message="Some operations data is temporarily unavailable."
+      />
       <OperationsClient
         summary={summary.data}
         routing={routing.data}

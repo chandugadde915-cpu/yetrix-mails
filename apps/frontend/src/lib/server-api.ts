@@ -27,6 +27,12 @@ export async function requireAuthToken() {
   return token;
 }
 
+export async function requirePageSession() {
+  if (!(await requireAuthToken())) {
+    redirect("/login");
+  }
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const token = await requireAuthToken();
   if (!token) {

@@ -1,16 +1,14 @@
 import { AppShell } from "@/components/AppShell";
 import { MailboxesClient } from "@/components/MailboxesClient";
+import { PageHeader } from "@/components/PageHeader";
 import { Domain, Mailbox } from "@/lib/platform-data";
-import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { apiGet, requirePageSession } from "@/lib/server-api";
 import { Plus } from "lucide-react";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function MailboxesPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   const [mailboxes, domains] = await Promise.all([
     apiGet<Mailbox[]>("/api/mailboxes"),
@@ -19,16 +17,16 @@ export default async function MailboxesPage() {
 
   return (
     <AppShell>
-      <div className="topbar">
-        <div className="title">
-          <h1>Mailboxes</h1>
-          <p>Create addresses, reset passwords, and manage storage quotas.</p>
-        </div>
-        <a className="button" href="#mailbox-create">
-          <Plus size={18} />
-          New mailbox
-        </a>
-      </div>
+      <PageHeader
+        title="Mailboxes"
+        description="Create addresses, reset passwords, and manage storage quotas."
+        actions={
+          <a className="button" href="#mailbox-create">
+            <Plus size={18} />
+            New mailbox
+          </a>
+        }
+      />
 
       <MailboxesClient initialMailboxes={mailboxes} domains={domains} />
     </AppShell>

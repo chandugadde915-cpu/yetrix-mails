@@ -1,38 +1,27 @@
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusNotice } from "@/components/StatusNotice";
 import { WorkspaceFlow } from "@/components/WorkspaceFlow";
 import { WorkspaceSyncButton } from "@/components/WorkspaceSyncButton";
-import { Domain, Mailbox, PlatformStatus } from "@/lib/platform-data";
-import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
-import { redirect } from "next/navigation";
+import { requirePageSession } from "@/lib/server-api";
+import { getWorkspaceSnapshot } from "@/lib/workspace-server";
 
 export const dynamic = "force-dynamic";
 
 export default async function SetupPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
-  const [domains, mailboxes, status] = await Promise.all([
-    apiGetSafe<Domain[]>("/api/domains", []),
-    apiGetSafe<Mailbox[]>("/api/mailboxes", []),
-    apiGetSafe<PlatformStatus>("/api/status", {
-      api: { healthy: false },
-      mailcow: { connected: false },
-    }),
-  ]);
-  const loadErrors = [domains.error, mailboxes.error, status.error].filter(Boolean);
+  const { domains, mailboxes, status, errors } = await getWorkspaceSnapshot();
 
   return (
     <AppShell>
-      <div className="title">
-        <h1>Launch Flow</h1>
-        <p>Complete the production path from domain ownership to working send and receive mail.</p>
-      </div>
-      {loadErrors.length > 0 ? (
-        <div className="notice warn-notice">Some setup data is temporarily unavailable.</div>
-      ) : null}
+      <PageHeader
+        title="Launch Flow"
+        description="Complete the production path from domain ownership to working send and receive mail."
+      />
+      <StatusNotice errors={errors} message="Some setup data is temporarily unavailable." />
       <WorkspaceSyncButton />
-      <WorkspaceFlow domains={domains.data} mailboxes={mailboxes.data} status={status.data} />
+      <WorkspaceFlow domains={domains} mailboxes={mailboxes} status={status} />
     </AppShell>
   );
 }

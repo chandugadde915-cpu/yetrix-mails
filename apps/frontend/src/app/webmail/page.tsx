@@ -1,16 +1,15 @@
 import { AppShell } from "@/components/AppShell";
 import { MailWorkspaceClient } from "@/components/MailWorkspaceClient";
-import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusNotice } from "@/components/StatusNotice";
+import { apiGetSafe, requirePageSession } from "@/lib/server-api";
 import { Mailbox, mailAccess } from "@/lib/platform-data";
 import { Inbox, Send, Server, Smartphone } from "lucide-react";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function WebmailPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   const mailboxesResult = await apiGetSafe<Mailbox[]>("/api/mailboxes", []);
   const mailboxes = mailboxesResult.data;
@@ -18,17 +17,14 @@ export default async function WebmailPage() {
 
   return (
     <AppShell>
-      <div className="topbar">
-        <div className="title">
-          <h1>Mail Workspace</h1>
-          <p>Read inboxes and send messages from Yetrix without opening the mail engine UI.</p>
-        </div>
-      </div>
-      {mailboxesResult.error ? (
-        <div className="notice warn-notice">
-          Mailboxes are temporarily unavailable. {mailboxesResult.error}
-        </div>
-      ) : null}
+      <PageHeader
+        title="Mail Workspace"
+        description="Read inboxes and send messages from Yetrix without opening the mail engine UI."
+      />
+      <StatusNotice
+        errors={[mailboxesResult.error]}
+        message="Mailboxes are temporarily unavailable."
+      />
 
       <MailWorkspaceClient mailboxes={mailboxes} />
 

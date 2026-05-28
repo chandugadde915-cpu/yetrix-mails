@@ -1,30 +1,26 @@
 import { AliasesClient, AliasRow } from "@/components/AliasesClient";
 import { AppShell } from "@/components/AppShell";
-import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
-import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusNotice } from "@/components/StatusNotice";
+import { apiGetSafe, requirePageSession } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
 export default async function AliasesPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   const aliases = await apiGetSafe<AliasRow[]>("/api/aliases", []);
 
   return (
     <AppShell>
-      <div className="topbar">
-        <div className="title">
-          <h1>Aliases</h1>
-          <p>Create forwarding addresses and catch-all style routing for each workspace.</p>
-        </div>
-      </div>
-      {aliases.error ? (
-        <div className="notice warn-notice">
-          Alias data is temporarily unavailable. {aliases.error}
-        </div>
-      ) : null}
+      <PageHeader
+        title="Aliases"
+        description="Create forwarding addresses and catch-all style routing for each workspace."
+      />
+      <StatusNotice
+        errors={[aliases.error]}
+        message="Alias data is temporarily unavailable."
+      />
       <AliasesClient initialAliases={aliases.data} />
     </AppShell>
   );

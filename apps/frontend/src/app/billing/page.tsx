@@ -1,14 +1,12 @@
 import { AppShell } from "@/components/AppShell";
-import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { PageHeader } from "@/components/PageHeader";
+import { apiGet, requirePageSession } from "@/lib/server-api";
 import { Domain, Mailbox, formatStorage } from "@/lib/platform-data";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
   const [domains, mailboxes] = await Promise.all([
     apiGet<Domain[]>("/api/domains"),
@@ -20,10 +18,10 @@ export default async function BillingPage() {
 
   return (
     <AppShell>
-      <div className="title">
-        <h1>Billing</h1>
-        <p>Live usage summary for domains, mailboxes, and allocated storage.</p>
-      </div>
+      <PageHeader
+        title="Billing"
+        description="Live usage summary for domains, mailboxes, and allocated storage."
+      />
       <section className="grid section">
         <div className="panel">
           <div className="metric">Plan</div>

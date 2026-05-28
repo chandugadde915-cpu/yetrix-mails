@@ -1,14 +1,15 @@
 import { AppShell } from "@/components/AppShell";
+import { MetricCard } from "@/components/MetricCard";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusNotice } from "@/components/StatusNotice";
 import { WorkspaceFlow } from "@/components/WorkspaceFlow";
-import { apiGetSafe, requireAuthToken } from "@/lib/server-api";
+import { requirePageSession } from "@/lib/server-api";
 import {
-  Domain,
-  Mailbox,
-  PlatformStatus,
   domainHealth,
   usagePercent,
   workspaceProgress,
 } from "@/lib/platform-data";
+import { getWorkspaceSnapshot } from "@/lib/workspace-server";
 import {
   Activity,
   Database,
@@ -22,27 +23,13 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  if (!(await requireAuthToken())) {
-    redirect("/login");
-  }
+  await requirePageSession();
 
-  const [domainsResult, mailboxesResult, statusResult] = await Promise.all([
-    apiGetSafe<Domain[]>("/api/domains", []),
-    apiGetSafe<Mailbox[]>("/api/mailboxes", []),
-    apiGetSafe<PlatformStatus>("/api/status", {
-      api: { healthy: false },
-      mailcow: { connected: false },
-    }),
-  ]);
-  const domains = domainsResult.data;
-  const mailboxes = mailboxesResult.data;
-  const status = statusResult.data;
-  const loadErrors = [domainsResult.error, mailboxesResult.error, statusResult.error].filter(Boolean);
+  const { domains, mailboxes, status, errors } = await getWorkspaceSnapshot();
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const metrics = {
     totalDomains: domains.length,
@@ -91,19 +78,17 @@ export default async function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="topbar">
-        <div className="title">
-          <h1>Workspace Dashboard</h1>
-          <p>Manage domains, mailboxes, DNS status, and platform health.</p>
-        </div>
-        <Link className="button" href="/domains#domain-create">
-          <Plus size={18} />
-          Add domain
-        </Link>
-      </div>
-      {loadErrors.length > 0 ? (
-        <div className="notice warn-notice">Some workspace data is temporarily unavailable.</div>
-      ) : null}
+      <PageHeader
+        title="Workspace Dashboard"
+        description="Manage domains, mailboxes, DNS status, and platform health."
+        actions={
+          <Link className="button" href="/domains#domain-create">
+            <Plus size={18} />
+            Add domain
+          </Link>
+        }
+      />
+      <StatusNotice errors={errors} />
 
       <section className="workspace-command-center">
         <div className="command-copy">
@@ -167,36 +152,14 @@ export default async function DashboardPage() {
       </section>
 
       <section className="metric-grid">
-        <div className="panel">
-          <div className="metric-row">
-            <Globe2 size={20} />
-            <div className="metric">Verified domains</div>
-          </div>
-          <div className="value">
-            {metrics.verifiedDomains}/{metrics.totalDomains}
-          </div>
-        </div>
-        <div className="panel">
-          <div className="metric-row">
-            <Inbox size={20} />
-            <div className="metric">Active mailboxes</div>
-          </div>
-          <div className="value">{metrics.activeMailboxes}</div>
-        </div>
-        <div className="panel">
-          <div className="metric-row">
-            <Send size={20} />
-            <div className="metric">Inactive mailboxes</div>
-          </div>
-          <div className="value">{metrics.inactiveMailboxes}</div>
-        </div>
-        <div className="panel">
-          <div className="metric-row">
-            <Activity size={20} />
-            <div className="metric">Delivery rate</div>
-          </div>
-          <div className="value">{metrics.deliveryRate}</div>
-        </div>
+        <MetricCard
+          icon={Globe2}
+          label="Verified domains"
+          value={`${metrics.verifiedDomains}/${metrics.totalDomains}`}
+        />
+        <MetricCard icon={Inbox} label="Active mailboxes" value={metrics.activeMailboxes} />
+        <MetricCard icon={Send} label="Inactive mailboxes" value={metrics.inactiveMailboxes} />
+        <MetricCard icon={Activity} label="Delivery rate" value={metrics.deliveryRate} />
       </section>
 
       <WorkspaceFlow domains={domains} mailboxes={mailboxes} status={status} />
