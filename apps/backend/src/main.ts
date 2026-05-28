@@ -1,6 +1,7 @@
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
+import { json, urlencoded } from "express";
 import { ApiResponseInterceptor } from "./common/api-response.interceptor";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { AppModule } from "./modules/app.module";
@@ -18,6 +19,8 @@ async function bootstrap() {
     origin: corsOrigin,
     credentials: true,
   });
+  app.use(json({ limit: "25mb" }));
+  app.use(urlencoded({ extended: true, limit: "25mb" }));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

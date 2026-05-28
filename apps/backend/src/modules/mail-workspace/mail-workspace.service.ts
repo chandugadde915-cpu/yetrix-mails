@@ -1,14 +1,36 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { randomUUID } from "crypto";
+import { promises as fs } from "fs";
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
+import { basename, join } from "path";
+import { DatabaseService } from "../database/database.service";
+
+interface SendAttachment {
+  filename: string;
+  contentType?: string;
+  dataBase64: string;
+}
+
+interface StoredAttachment {
+  filename: string;
+  contentType?: string;
+  sizeBytes: number;
+  storagePath: string;
+}
 
 @Injectable()
 export class MailWorkspaceService {
   private readonly host: string;
+  private readonly storageDir: string;
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly database: DatabaseService,
+  ) {
     this.host = config.get<string>("MAIL_CLIENT_HOST", "mail.yetrixtechnologies.com");
+    this.storageDir = config.get<string>("LOCAL_MAIL_STORAGE_DIR", join(process.cwd(), "storage", "sent-attachments"));
   }
 
   async testConnection(input: { email: string; password: string }) {
@@ -143,8 +165,10 @@ export class MailWorkspaceService {
     subject: string;
     text: string;
     cc?: string;
-  }) {
+    attachments?: SendAttachment[];
+  }, workspaceId?: string) {
     const transport = this.smtpTransport({ email: input.from, password: input.password });
+    const storedAttachments = await this.storeAttachments(input.attachments ?? []);
 
     const result = await transport.sendMail({
       from: input.from,
@@ -152,13 +176,24 @@ export class MailWorkspaceService {
       cc: input.cc,
       subject: input.subject,
       text: input.text,
+      attachments: storedAttachments.map((attachment) => ({
+        filename: attachment.filename,
+        contentType: attachment.contentType,
+        path: attachment.storagePath,
+      })),
     });
     await this.saveSentCopy(input).catch(() => undefined);
+    await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments);
 
     return {
       messageId: result.messageId,
       accepted: result.accepted,
       rejected: result.rejected,
+      attachments: storedAttachments.map((attachment) => ({
+        filename: attachment.filename,
+        sizeBytes: attachment.sizeBytes,
+        stored: true,
+      })),
     };
   }
 
@@ -169,6 +204,7 @@ export class MailWorkspaceService {
     subject: string;
     text: string;
     cc?: string;
+    attachments?: SendAttachment[];
   }) {
     await this.withImap({ email: input.from, password: input.password }, async (client) => {
       const folders = await client.list();
@@ -192,6 +228,85 @@ export class MailWorkspaceService {
 
       await client.append(sentFolder, raw, ["\\Seen"], new Date());
     });
+  }
+
+  private async storeAttachments(attachments: SendAttachment[]): Promise<StoredAttachment[]> {
+    if (attachments.length === 0) {
+      return [];
+    }
+
+    const dayFolder = new Date().toISOString().slice(0, 10);
+    const targetDir = join(this.storageDir, dayFolder);
+    await fs.mkdir(targetDir, { recursive: true });
+
+    const stored: StoredAttachment[] = [];
+    for (const attachment of attachments) {
+      const filename = this.safeFilename(attachment.filename);
+      const buffer = this.decodeAttachment(attachment.dataBase64);
+      if (buffer.byteLength > 10 * 1024 * 1024) {
+        throw new BadRequestException(`${filename} is larger than the 10 MB attachment limit`);
+      }
+
+      const storagePath = join(targetDir, `${Date.now()}-${randomUUID()}-${filename}`);
+      await fs.writeFile(storagePath, buffer);
+      stored.push({
+        filename,
+        contentType: attachment.contentType,
+        sizeBytes: buffer.byteLength,
+        storagePath,
+      });
+    }
+
+    return stored;
+  }
+
+  private decodeAttachment(dataBase64: string) {
+    const [, data] = dataBase64.includes(",") ? dataBase64.split(",", 2) : ["", dataBase64];
+    try {
+      return Buffer.from(data, "base64");
+    } catch {
+      throw new BadRequestException("Attachment data must be base64 encoded");
+    }
+  }
+
+  private safeFilename(filename: string) {
+    const safe = basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
+    if (!safe) {
+      throw new BadRequestException("Attachment filename is required");
+    }
+    return safe.slice(0, 180);
+  }
+
+  private async recordSentAttachments(
+    workspaceId: string | undefined,
+    input: { from: string; to: string },
+    messageId: string,
+    attachments: StoredAttachment[],
+  ) {
+    if (!this.database.enabled || attachments.length === 0) {
+      return;
+    }
+
+    for (const attachment of attachments) {
+      await this.database.query(
+        `
+          INSERT INTO sent_attachments(
+            workspace_id, mailbox, recipient, filename, content_type, size_bytes, storage_path, message_id
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `,
+        [
+          workspaceId ?? null,
+          input.from.toLowerCase(),
+          input.to.toLowerCase(),
+          attachment.filename,
+          attachment.contentType ?? null,
+          attachment.sizeBytes,
+          attachment.storagePath,
+          messageId,
+        ],
+      );
+    }
   }
 
   private async withMailbox<T>(

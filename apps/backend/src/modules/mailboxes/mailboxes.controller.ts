@@ -33,6 +33,7 @@ export class MailboxesController {
     if (!isSuperAdmin(req)) {
       await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
     }
+    await this.tenancy.ensureEmailDomainVerified(req.user?.workspaceId, body.email, isSuperAdmin(req));
     const result = await this.mailcow.addMailbox(body);
     if (req.user?.workspaceId) {
       await this.tenancy.recordMailbox(req.user.workspaceId, body);

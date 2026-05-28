@@ -12,3 +12,4 @@ maildata
 rspamd-data
 postgres-data
 redis-data
+storage/sent-attachments

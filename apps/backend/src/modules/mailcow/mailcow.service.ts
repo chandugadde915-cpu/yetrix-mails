@@ -10,7 +10,7 @@ type MailcowMethod = "GET" | "POST";
 type MailcowResponse = Array<{ type?: string; msg?: unknown; log?: unknown }> | unknown;
 
 export interface DomainRecord {
-  type: "MX" | "SPF" | "DKIM" | "DMARC";
+  type: "MX" | "A" | "SPF" | "DKIM" | "DMARC";
   name: string;
   value: string;
   status: "placeholder";
@@ -20,13 +20,11 @@ export interface DomainRecord {
 export class MailcowService {
   private readonly baseUrl?: string;
   private readonly apiKey?: string;
-  private readonly mailDomain: string;
   private readonly mailServerIp: string;
 
   constructor(config: ConfigService) {
     this.baseUrl = config.get<string>("MAILCOW_BASE_URL")?.replace(/\/$/, "");
     this.apiKey = config.get<string>("MAILCOW_API_KEY");
-    this.mailDomain = config.get<string>("MAIL_DOMAIN", "yetrixtechnologies.com");
     this.mailServerIp = config.get<string>("MAIL_SERVER_IP", "56.228.11.175");
   }
 
@@ -219,11 +217,18 @@ export class MailcowService {
   }
 
   dnsPlaceholders(domain: string): DomainRecord[] {
+    const mailHost = `mail.${domain}`;
     return [
       {
         type: "MX",
         name: domain,
-        value: `10 mail.${this.mailDomain}`,
+        value: `10 ${mailHost}`,
+        status: "placeholder",
+      },
+      {
+        type: "A",
+        name: mailHost,
+        value: this.mailServerIp,
         status: "placeholder",
       },
       {
@@ -241,7 +246,7 @@ export class MailcowService {
       {
         type: "DMARC",
         name: `_dmarc.${domain}`,
-        value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${this.mailDomain}`,
+        value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${domain}`,
         status: "placeholder",
       },
     ];

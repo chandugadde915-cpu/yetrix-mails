@@ -62,13 +62,14 @@ The production workspace flow is:
 ```text
 Login
   -> Add domain
-  -> Verify MX/SPF/DKIM/DMARC
+  -> Verify MX/A/SPF/DKIM/DMARC
   -> Create mailbox
   -> Open Yetrix Mail Workspace
   -> Test mailbox login
   -> Sync inbox
   -> Search folders
   -> Send self-test or outside test email
+  -> Attach files when sending
   -> Read/delete messages through backend IMAP/SMTP
 ```
 
@@ -91,6 +92,7 @@ MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
 MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
+LOCAL_MAIL_STORAGE_DIR=/app/storage/sent-attachments
 DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password

@@ -60,6 +60,6 @@ export class MailWorkspaceController {
     if (!isSuperAdmin(req)) {
       await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.from);
     }
-    return this.mailWorkspace.sendMessage(body);
+    return this.mailWorkspace.sendMessage(body, req.user?.workspaceId);
   }
 }

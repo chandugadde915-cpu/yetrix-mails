@@ -27,10 +27,20 @@ export class DomainsController {
       : domains;
 
     return Promise.all(
-      visibleDomains.map(async (domain) => ({
-        ...domain,
-        records: (await this.dnsService.verifyDomain(domain.domain)).records,
-      })),
+      visibleDomains.map(async (domain) => {
+        const verification = await this.dnsService.verifyDomain(domain.domain);
+        await this.tenancy.recordDnsCheck(
+          req.user?.workspaceId,
+          domain.domain,
+          verification,
+          isSuperAdmin(req),
+        );
+        return {
+          ...domain,
+          status: verification.verified ? "verified" : "pending_dns",
+          records: verification.records,
+        };
+      }),
     );
   }
 
@@ -70,7 +80,12 @@ export class DomainsController {
   }
 
   @Get(":domain/dns-status")
-  getDnsStatus(@Param("domain") domain: string) {
-    return this.dnsService.verifyDomain(domain);
+  async getDnsStatus(@Req() req: AuthenticatedRequest, @Param("domain") domain: string) {
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    }
+    const verification = await this.dnsService.verifyDomain(domain);
+    await this.tenancy.recordDnsCheck(req.user?.workspaceId, domain, verification, isSuperAdmin(req));
+    return verification;
   }
 }

@@ -35,6 +35,7 @@ MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
 MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
+LOCAL_MAIL_STORAGE_DIR=/app/storage/sent-attachments
 DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password

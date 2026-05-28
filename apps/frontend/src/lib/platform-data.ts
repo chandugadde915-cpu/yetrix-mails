@@ -1,7 +1,7 @@
 export type RecordStatus = "verified" | "missing" | "placeholder";
 
 export interface DomainRecord {
-  type: "MX" | "SPF" | "DKIM" | "DMARC";
+  type: "MX" | "A" | "SPF" | "DKIM" | "DMARC";
   name: string;
   value: string;
   status: RecordStatus;

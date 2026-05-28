@@ -3,7 +3,17 @@ import { DatabaseService } from "../database/database.service";
 
 interface DomainRow {
   id: string;
+  workspace_id?: string;
   domain: string;
+  status?: string;
+}
+
+interface DnsVerification {
+  domain: string;
+  verified?: boolean;
+  checks: Record<string, boolean>;
+  records: Array<Record<string, unknown>>;
+  raw: Record<string, unknown>;
 }
 
 @Injectable()
@@ -54,6 +64,52 @@ export class TenancyService {
     return result.rows[0];
   }
 
+  async recordDnsCheck(
+    workspaceId: string | undefined,
+    domain: string,
+    verification: DnsVerification,
+    includeAll = false,
+  ) {
+    if (!this.database.enabled) return verification;
+
+    const domainRow = await this.resolveDomainRow(workspaceId, domain, includeAll);
+    if (!domainRow) return verification;
+
+    const verified = Boolean(verification.verified ?? Object.values(verification.checks).every(Boolean));
+    const status = verified ? "verified" : "pending_dns";
+
+    await this.database.query(
+      `
+        INSERT INTO dns_checks(workspace_id, domain_id, domain, status, checks, records, raw)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb)
+      `,
+      [
+        domainRow.workspace_id,
+        domainRow.id,
+        domain.toLowerCase(),
+        status,
+        JSON.stringify(verification.checks),
+        JSON.stringify(verification.records),
+        JSON.stringify(verification.raw),
+      ],
+    );
+
+    await this.database.query(
+      `
+        UPDATE domains
+        SET status = $2,
+            verified_at = CASE WHEN $2 = 'verified' THEN now() ELSE verified_at END,
+            last_dns_check_at = now(),
+            updated_at = now()
+        WHERE id = $1
+      `,
+      [domainRow.id, status],
+    );
+
+    await this.refreshWorkspaceStatus(domainRow.workspace_id);
+    return verification;
+  }
+
   async recordDomain(workspaceId: string | undefined, domain: string) {
     const id = this.requireWorkspace(workspaceId);
     if (!id) return;
@@ -77,6 +133,8 @@ export class TenancyService {
         throw new ConflictException("This domain is already assigned to another workspace");
       }
     }
+
+    await this.refreshWorkspaceStatus(id);
   }
 
   async ensureDomainAvailable(workspaceId: string | undefined, domain: string) {
@@ -100,6 +158,7 @@ export class TenancyService {
       id,
       domain.toLowerCase(),
     ]);
+    await this.refreshWorkspaceStatus(id);
   }
 
   async removeDomainGlobally(domain: string) {
@@ -115,7 +174,7 @@ export class TenancyService {
     if (!id) return;
 
     const domain = this.domainFromEmail(input.email);
-    const domainRow = await this.ensureDomainAccess(id, domain);
+    const domainRow = await this.ensureDomainVerified(id, domain);
     await this.database.query(
       `
         INSERT INTO mailboxes(workspace_id, domain_id, email, name, quota_mb, is_active)
@@ -177,6 +236,28 @@ export class TenancyService {
 
     const domain = this.domainFromEmail(email);
     await this.ensureDomainAccess(id, domain);
+  }
+
+  async ensureEmailDomainVerified(workspaceId: string | undefined, email: string, includeAll = false) {
+    if (!this.database.enabled) return;
+
+    const domain = this.domainFromEmail(email);
+    await this.ensureDomainVerified(workspaceId, domain, includeAll);
+  }
+
+  async ensureDomainVerified(workspaceId: string | undefined, domain: string, includeAll = false) {
+    if (!this.database.enabled) return null;
+
+    const domainRow = await this.resolveDomainRow(workspaceId, domain, includeAll);
+    if (!domainRow) {
+      throw new ForbiddenException("This domain does not belong to the current workspace");
+    }
+
+    if (domainRow.status !== "verified") {
+      throw new ForbiddenException("Verify domain DNS before creating mailboxes");
+    }
+
+    return domainRow;
   }
 
   async recordAlias(workspaceId: string | undefined, input: { address: string; goto: string; active?: boolean }) {
@@ -267,5 +348,40 @@ export class TenancyService {
       throw new BadRequestException("A valid email address is required");
     }
     return domain;
+  }
+
+  private async resolveDomainRow(workspaceId: string | undefined, domain: string, includeAll = false) {
+    if (!this.database.enabled) return null;
+
+    if (includeAll) {
+      const result = await this.database.query<DomainRow>(
+        "SELECT id, workspace_id, domain, status FROM domains WHERE lower(domain) = $1 LIMIT 1",
+        [domain.toLowerCase()],
+      );
+      return result.rows[0] ?? null;
+    }
+
+    const id = this.requireWorkspace(workspaceId);
+    if (!id) return null;
+
+    const result = await this.database.query<DomainRow>(
+      "SELECT id, workspace_id, domain, status FROM domains WHERE workspace_id = $1 AND lower(domain) = $2 LIMIT 1",
+      [id, domain.toLowerCase()],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  private async refreshWorkspaceStatus(workspaceId?: string) {
+    if (!this.database.enabled || !workspaceId) return;
+
+    const result = await this.database.query<{ verified_domains: string }>(
+      "SELECT count(*) AS verified_domains FROM domains WHERE workspace_id = $1 AND status = 'verified'",
+      [workspaceId],
+    );
+    const status = Number(result.rows[0]?.verified_domains ?? 0) > 0 ? "active" : "pending";
+    await this.database.query("UPDATE workspaces SET status = $2, updated_at = now() WHERE id = $1", [
+      workspaceId,
+      status,
+    ]);
   }
 }

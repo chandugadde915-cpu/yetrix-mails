@@ -50,6 +50,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
+    await this.query(`ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
     await this.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -81,10 +82,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         status TEXT NOT NULL DEFAULT 'pending_dns',
         dkim_selector TEXT NOT NULL DEFAULT 'dkim',
         dkim_public_key TEXT,
+        verified_at TIMESTAMPTZ,
+        last_dns_check_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
+    await this.query(`ALTER TABLE domains ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`);
+    await this.query(`ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_dns_check_at TIMESTAMPTZ`);
     await this.query(`ALTER TABLE domains ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
     await this.query(`
       CREATE TABLE IF NOT EXISTS mailboxes (
@@ -132,10 +137,39 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS dns_checks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+        domain_id UUID REFERENCES domains(id) ON DELETE CASCADE,
+        domain TEXT NOT NULL,
+        status TEXT NOT NULL,
+        checks JSONB NOT NULL DEFAULT '{}'::jsonb,
+        records JSONB NOT NULL DEFAULT '[]'::jsonb,
+        raw JSONB NOT NULL DEFAULT '{}'::jsonb,
+        checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    await this.query(`
+      CREATE TABLE IF NOT EXISTS sent_attachments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL,
+        mailbox TEXT NOT NULL,
+        recipient TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        content_type TEXT,
+        size_bytes INTEGER NOT NULL DEFAULT 0,
+        storage_path TEXT NOT NULL,
+        message_id TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
     await this.query(`CREATE INDEX IF NOT EXISTS idx_domains_workspace_id ON domains(workspace_id)`);
     await this.query(`CREATE INDEX IF NOT EXISTS idx_mailboxes_workspace_id ON mailboxes(workspace_id)`);
     await this.query(`CREATE INDEX IF NOT EXISTS idx_aliases_workspace_id ON aliases(workspace_id)`);
     await this.query(`CREATE INDEX IF NOT EXISTS idx_audit_workspace_id ON audit_events(workspace_id)`);
+    await this.query(`CREATE INDEX IF NOT EXISTS idx_dns_checks_domain ON dns_checks(lower(domain))`);
+    await this.query(`CREATE INDEX IF NOT EXISTS idx_sent_attachments_mailbox ON sent_attachments(lower(mailbox))`);
   }
 
   private async withRetry(task: () => Promise<void>) {

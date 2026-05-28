@@ -4,16 +4,17 @@ import { apiPost } from "@/lib/client-api";
 import { Mailbox } from "@/lib/platform-data";
 import {
   CheckCircle2,
-  Eye,
-  FolderSync,
+  FileText,
+  Folder,
   Inbox,
   LockKeyhole,
+  Paperclip,
   RefreshCw,
   Search,
   Send,
   Trash2,
 } from "lucide-react";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useMemo, useState, useTransition } from "react";
 
 interface MailFolder {
   path: string;
@@ -36,6 +37,12 @@ interface MailDetail extends MailMessage {
   text: string;
 }
 
+interface EncodedAttachment {
+  filename: string;
+  contentType?: string;
+  dataBase64: string;
+}
+
 export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active");
   const [selected, setSelected] = useState(activeMailboxes[0]?.address ?? mailboxes[0]?.address ?? "");
@@ -46,9 +53,14 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [activeMessage, setActiveMessage] = useState<MailDetail | null>(null);
   const [compose, setCompose] = useState({ to: "", subject: "", text: "" });
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [notice, setNotice] = useState("");
   const [isPending, startTransition] = useTransition();
   const folderTitle = folders.find((item) => item.path === folder)?.name ?? folder;
+  const selectedMailbox = useMemo(
+    () => mailboxes.find((mailbox) => mailbox.address === selected),
+    [mailboxes, selected],
+  );
 
   async function loadInbox(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -60,13 +72,13 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
           password,
           folder,
           search: search.trim() || undefined,
-          limit: 20,
+          limit: 40,
         });
         setMessages(data);
         setActiveMessage(null);
-        setNotice("Inbox synced.");
+        setNotice("Mailbox synced.");
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not sync inbox.");
+        setNotice(error instanceof Error ? error.message : "Could not sync mailbox.");
       }
     });
   }
@@ -75,10 +87,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     setNotice("");
     startTransition(async () => {
       try {
-        await apiPost("/api/mail/connection-test", {
-          email: selected,
-          password,
-        });
+        await apiPost("/api/mail/connection-test", { email: selected, password });
         setNotice("Mailbox login, IMAP, and SMTP are working.");
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Mailbox test failed.");
@@ -166,13 +175,20 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     setNotice("");
     startTransition(async () => {
       try {
+        const encodedAttachments = await Promise.all(attachments.map(readAttachment));
         await apiPost("/api/mail/send", {
           from: selected,
           password,
           ...compose,
+          attachments: encodedAttachments,
         });
         setCompose({ to: "", subject: "", text: "" });
-        setNotice("Message sent.");
+        setAttachments([]);
+        setNotice(
+          encodedAttachments.length > 0
+            ? "Message sent and attachments saved locally."
+            : "Message sent.",
+        );
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Could not send message.");
       }
@@ -180,56 +196,13 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
   }
 
   return (
-    <>
-      <section className="mail-console-hero">
-        <div>
-          <div className="eyebrow light">
-            <LockKeyhole size={16} />
-            Private mail workspace
-          </div>
-          <h2>Read, search, send, and test hosted mailboxes from your Yetrix panel.</h2>
-          <p>
-            The browser talks only to your backend. Mailbox passwords are used for this live IMAP
-            and SMTP session, while the Mailcow admin UI stays hidden.
-          </p>
-        </div>
-        <div className="mail-console-path">
-          <div>
-            <Inbox size={17} />
-            <span>Login</span>
-          </div>
-          <div>
-            <FolderSync size={17} />
-            <span>Folders</span>
-          </div>
-          <div>
-            <Search size={17} />
-            <span>Search</span>
-          </div>
-          <div>
-            <Send size={17} />
-            <span>Send</span>
-          </div>
-        </div>
-        <div className="mail-console-stats">
-          <div>
-            <strong>{activeMailboxes.length}</strong>
-            <span>active mailboxes</span>
-          </div>
-          <div>
-            <strong>{folders.length}</strong>
-            <span>loaded folders</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="mail-workspace-grid">
-        <form className="panel mail-login-panel" onSubmit={loadInbox}>
+    <section className="outlook-shell">
+      <aside className="outlook-sidebar">
+        <div className="outlook-account">
           <div className="metric-row">
-            <Inbox size={20} />
-            <div className="metric">Mailbox session</div>
+            <LockKeyhole size={18} />
+            <div className="metric">Mailbox login</div>
           </div>
-          <p className="panel-note">Select a mailbox, enter its mailbox password, then sync mail.</p>
           <select value={selected} onChange={(event) => setSelected(event.target.value)} required>
             {mailboxes.map((mailbox) => (
               <option key={mailbox.address} value={mailbox.address}>
@@ -245,62 +218,136 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
             onChange={(event) => setPassword(event.target.value)}
             required
           />
-          <div className="mail-session-row">
-            <select value={folder} onChange={(event) => setFolder(event.target.value)}>
-              {folders.map((item) => (
-                <option key={item.path} value={item.path}>
-                  {item.specialUse === "\\Sent" ? "Sent" : item.name}
-                </option>
-              ))}
-            </select>
-            <button
-              className="button secondary"
-              disabled={!selected || !password || isPending}
-              type="button"
-              onClick={() => void loadFolders()}
-            >
-              <RefreshCw size={18} />
-              Folders
-            </button>
-          </div>
-          <input
-            placeholder="Search sender, subject, or body"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <button className="button" disabled={!selected || !password || isPending}>
-            <RefreshCw size={18} />
-            Sync mail
-          </button>
           <div className="mail-session-actions">
             <button
-              className="button secondary"
+              className="icon-button"
               disabled={!selected || !password || isPending}
+              title="Test mailbox login"
               type="button"
               onClick={() => void testConnection()}
             >
-              <CheckCircle2 size={18} />
-              Test login
+              <CheckCircle2 size={16} />
             </button>
             <button
-              className="button secondary"
+              className="icon-button"
               disabled={!selected || !password || isPending}
+              title="Load folders"
+              type="button"
+              onClick={() => void loadFolders()}
+            >
+              <RefreshCw size={16} />
+            </button>
+            <button
+              className="icon-button"
+              disabled={!selected || !password || isPending}
+              title="Send self-test"
               type="button"
               onClick={() => void sendSelfTest()}
             >
-              <Send size={18} />
-              Self-test
+              <Send size={16} />
             </button>
           </div>
-          {notice ? <div className="notice">{notice}</div> : null}
+        </div>
+
+        <div className="folder-list">
+          {folders.map((item) => (
+            <button
+              className={`outlook-folder ${folder === item.path ? "active" : ""}`}
+              key={item.path}
+              type="button"
+              onClick={() => setFolder(item.path)}
+            >
+              {item.specialUse === "\\Sent" ? <Send size={16} /> : <Folder size={16} />}
+              <span>{item.specialUse === "\\Sent" ? "Sent" : item.name}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <div className="outlook-list-pane">
+        <form className="outlook-toolbar" onSubmit={loadInbox}>
+          <div>
+            <h2>{folderTitle}</h2>
+            <span>{messages.length} messages</span>
+          </div>
+          <label className="search-box">
+            <Search size={16} />
+            <input
+              placeholder="Search mail"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <button className="button" disabled={!selected || !password || isPending}>
+            <RefreshCw size={18} />
+            Sync
+          </button>
         </form>
 
-        <form className="panel compose-panel" onSubmit={sendMessage}>
+        {notice ? <div className="notice">{notice}</div> : null}
+
+        <div className="outlook-message-list">
+          {messages.map((message) => (
+            <button
+              className={`outlook-message ${activeMessage?.id === message.id ? "active" : ""}`}
+              key={message.id}
+              type="button"
+              onClick={() => void openMessage(message.id)}
+            >
+              <span className={`read-dot ${message.seen ? "seen" : ""}`} />
+              <span>
+                <strong>{message.from || "Unknown sender"}</strong>
+                <small>{message.subject}</small>
+                {message.preview ? <em>{message.preview}</em> : null}
+              </span>
+              <time>{message.date ? new Date(message.date).toLocaleDateString() : ""}</time>
+            </button>
+          ))}
+          {messages.length === 0 ? (
+            <div className="outlook-empty">
+              <Inbox size={28} />
+              <strong>No messages loaded</strong>
+              <span>{selectedMailbox?.address ?? "Mailbox"}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <section className="outlook-reading-pane">
+        {activeMessage ? (
+          <article className="reader-card">
+            <div className="reader-head">
+              <div>
+                <span className="muted-text">{activeMessage.from}</span>
+                <h1>{activeMessage.subject}</h1>
+                <p>
+                  To {activeMessage.to || selected}
+                  {activeMessage.date ? ` - ${new Date(activeMessage.date).toLocaleString()}` : ""}
+                </p>
+              </div>
+              <button
+                className="icon-button danger-icon"
+                title="Delete message"
+                onClick={() => void deleteMessage(activeMessage.id)}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+            <pre className="message-body">{activeMessage.text || "No readable text body."}</pre>
+          </article>
+        ) : (
+          <article className="reader-card reader-empty">
+            <Inbox size={30} />
+            <h1>{selectedMailbox?.address ?? "Mail workspace"}</h1>
+            <p>No message selected.</p>
+          </article>
+        )}
+
+        <form className="compose-card" onSubmit={sendMessage}>
           <div className="metric-row">
             <Send size={20} />
             <div className="metric">Compose</div>
           </div>
-          <p className="panel-note">Send mail through SMTP using the selected mailbox identity.</p>
           <input
             placeholder="To"
             type="email"
@@ -320,91 +367,47 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
             onChange={(event) => setCompose({ ...compose, text: event.target.value })}
             required
           />
+          <label className="attachment-picker">
+            <Paperclip size={17} />
+            <span>{attachments.length > 0 ? `${attachments.length} attached` : "Attach files"}</span>
+            <input
+              multiple
+              type="file"
+              onChange={(event) => setAttachments(Array.from(event.target.files ?? []))}
+            />
+          </label>
+          {attachments.length > 0 ? (
+            <div className="attachment-list">
+              {attachments.map((file) => (
+                <span key={`${file.name}-${file.size}`}>
+                  <FileText size={14} />
+                  {file.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <button className="button" disabled={!selected || !password || isPending}>
             <Send size={18} />
             Send
           </button>
         </form>
       </section>
-
-      <section className="panel section">
-        <div className="title">
-          <h1>{folderTitle}</h1>
-          <p>
-            Messages loaded through the Yetrix backend using IMAP
-            {search.trim() ? ` for "${search.trim()}"` : ""}.
-          </p>
-        </div>
-        <div className="message-list">
-          {messages.map((message) => (
-            <article className="message-row" key={message.id}>
-              <Inbox size={20} />
-              <div>
-                <div className="message-head">
-                  <strong>{message.from || "Unknown sender"}</strong>
-                  <span>{message.date ? new Date(message.date).toLocaleString() : "No date"}</span>
-                </div>
-                <h2>{message.subject}</h2>
-                {message.preview ? <p>{message.preview}</p> : null}
-              </div>
-              <div className="message-actions">
-                <span className={`badge ${message.seen ? "good" : "warn"}`}>
-                  {message.seen ? "read" : "new"}
-                </span>
-                <button
-                  className="icon-button"
-                  title="Open message"
-                  onClick={() => void openMessage(message.id)}
-                >
-                  <Eye size={16} />
-                </button>
-                <button
-                  className="icon-button danger-icon"
-                  title="Delete message"
-                  onClick={() => void deleteMessage(message.id)}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </article>
-          ))}
-          {messages.length === 0 ? (
-            <article className="message-row">
-              <Inbox size={20} />
-              <div>
-                <div className="message-head">
-                  <strong>No inbox loaded</strong>
-                </div>
-                <h2>Choose a mailbox and sync using its password.</h2>
-                <p>Messages stay in your mail server; Yetrix only reads them for this session.</p>
-              </div>
-            </article>
-          ) : null}
-        </div>
-      </section>
-
-      {activeMessage ? (
-        <section className="panel section message-detail">
-          <div className="message-detail-head">
-            <div>
-              <span className="muted-text">{activeMessage.from}</span>
-              <h1>{activeMessage.subject}</h1>
-              <p>
-                To {activeMessage.to || selected}
-                {activeMessage.date ? ` · ${new Date(activeMessage.date).toLocaleString()}` : ""}
-              </p>
-            </div>
-            <button
-              className="icon-button danger-icon"
-              title="Delete message"
-              onClick={() => void deleteMessage(activeMessage.id)}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-          <pre className="message-body">{activeMessage.text || "No readable text body."}</pre>
-        </section>
-      ) : null}
-    </>
+    </section>
   );
+}
+
+function readAttachment(file: File): Promise<EncodedAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      resolve({
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        dataBase64: result.includes(",") ? result.split(",")[1] : result,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
 }

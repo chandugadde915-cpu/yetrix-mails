@@ -56,6 +56,8 @@ DELETE /api/users/:id
 `GET /api/workspaces` is superadmin-only and returns every workspace with domain, mailbox, alias,
 and user counts. `POST /api/workspace/sync` pulls domains, mailboxes, and aliases from Mailcow and
 records the visible tenant-owned objects in the Yetrix workspace database.
+New signup workspaces start as `pending`; a workspace becomes `active` after at least one domain is
+verified.
 
 ## Domains
 
@@ -74,6 +76,9 @@ Create body:
   "description": "Primary mail domain"
 }
 ```
+
+DNS verification persists `dns_checks`, updates `domains.status`, and checks required MX, A, SPF,
+DKIM, and DMARC records. Mailbox creation is blocked until the mailbox domain is verified.
 
 ## Mailboxes
 
@@ -212,6 +217,16 @@ Send body:
   "password": "MailboxPassword123!",
   "to": "customer@example.com",
   "subject": "Hello",
-  "text": "Message body"
+  "text": "Message body",
+  "attachments": [
+    {
+      "filename": "proposal.pdf",
+      "contentType": "application/pdf",
+      "dataBase64": "JVBERi0x..."
+    }
+  ]
 }
 ```
+
+Attachments are limited to five files per send request. The backend stores sent files in
+`LOCAL_MAIL_STORAGE_DIR` and records metadata in `sent_attachments` when the database is enabled.

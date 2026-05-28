@@ -16,6 +16,9 @@ services:
       MAIL_SERVER_IP: ${MAIL_SERVER_IP:-56.228.11.175}
       MAILCOW_DKIM_SELECTOR: ${MAILCOW_DKIM_SELECTOR:-dkim}
       MAIL_CLIENT_HOST: ${MAIL_CLIENT_HOST:-mail.yetrixtechnologies.com}
+      LOCAL_MAIL_STORAGE_DIR: ${LOCAL_MAIL_STORAGE_DIR:-/app/storage/sent-attachments}
+    volumes:
+      - ./storage/sent-attachments:/app/storage/sent-attachments
     ports:
       - "4000:4000"
     depends_on:

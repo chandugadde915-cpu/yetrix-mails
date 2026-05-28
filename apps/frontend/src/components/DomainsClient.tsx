@@ -67,7 +67,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
           </div>
           <h2>Verify ownership, secure sending, and route mail from one place.</h2>
           <p>
-            This view reads live hosted domains through your backend and checks MX, SPF, DKIM,
+            This view reads live hosted domains through your backend and checks MX, A, SPF, DKIM,
             and DMARC against public DNS.
           </p>
         </div>
@@ -197,7 +197,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
             </div>
             <h2>Add yetrixtechnologies.com or a customer domain</h2>
             <p>
-              After you add a domain, this page shows live MX, SPF, DKIM, and DMARC status from
+              After you add a domain, this page shows live MX, A, SPF, DKIM, and DMARC status from
               public DNS.
             </p>
           </article>

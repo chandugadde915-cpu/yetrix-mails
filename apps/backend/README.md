@@ -11,6 +11,7 @@ MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
 MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
+LOCAL_MAIL_STORAGE_DIR=/app/storage/sent-attachments
 DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password
@@ -50,6 +51,10 @@ DELETE /api/aliases/:id
 POST   /api/mail/messages
 POST   /api/mail/send
 ```
+
+`POST /api/mail/send` accepts up to five base64 attachments. Sent files are saved under
+`LOCAL_MAIL_STORAGE_DIR` before SMTP delivery and metadata is recorded in `sent_attachments` when
+the database is enabled.
 
 All responses use:
 

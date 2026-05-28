@@ -107,7 +107,7 @@ export class AuthService {
     }
 
     const workspace = await this.database.query<{ id: string }>(
-      "INSERT INTO workspaces(name) VALUES ($1) RETURNING id",
+      "INSERT INTO workspaces(name, status) VALUES ($1, 'pending') RETURNING id",
       [input.workspaceName.trim()],
     );
     const user = await this.database.query<UserRow>(
