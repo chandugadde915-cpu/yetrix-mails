@@ -1,6 +1,9 @@
 {
   "name": "ownmail-platform",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "workspaces": [
     "apps/frontend",
     "apps/backend"
