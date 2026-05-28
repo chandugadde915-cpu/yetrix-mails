@@ -1,9 +1,9 @@
 import { LoginForm } from "@/components/LoginForm";
-import { requireAuthToken } from "@/lib/server-api";
+import { hasWorkspaceSession } from "@/lib/server-api";
 import { redirect } from "next/navigation";
 
 export default async function LoginPage() {
-  if (await requireAuthToken()) {
+  if (await hasWorkspaceSession()) {
     redirect("/dashboard");
   }
 

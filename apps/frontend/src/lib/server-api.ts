@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiBaseUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
+const loginPath = "/login?session=expired";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -22,15 +24,41 @@ export async function requireAuthToken() {
 export async function apiGet<T>(path: string): Promise<T> {
   const token = await requireAuthToken();
   if (!token) {
-    throw new Error("Not authenticated");
+    redirect("/login");
   }
 
-  return backendRequest<T>(path, token);
+  try {
+    return await backendRequest<T>(path, token);
+  } catch (error) {
+    if (isMissingSessionContext(error)) {
+      redirect(loginPath);
+    }
+
+    throw error;
+  }
+}
+
+export async function hasWorkspaceSession() {
+  const token = await requireAuthToken();
+  if (!token) {
+    return false;
+  }
+
+  try {
+    await backendRequest("/api/workspace", token);
+    return true;
+  } catch (error) {
+    if (isMissingSessionContext(error)) {
+      return false;
+    }
+
+    throw error;
+  }
 }
 
 export async function backendRequest<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
   if (!apiBaseUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is not configured");
+    throw new Error("API_URL or NEXT_PUBLIC_API_URL is not configured");
   }
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -55,6 +83,18 @@ export async function backendRequest<T>(path: string, token?: string, init?: Req
   }
 
   return (payload.data ?? payload) as T;
+}
+
+function isMissingSessionContext(error: unknown) {
+  if (!(error instanceof ApiRequestError)) {
+    return false;
+  }
+
+  return (
+    error.status === 401 ||
+    error.message === "Workspace context is missing" ||
+    (error.status === 503 && error.message.toLowerCase().includes("workspace context"))
+  );
 }
 
 async function parsePayload(response: Response) {

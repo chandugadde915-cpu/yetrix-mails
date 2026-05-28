@@ -90,7 +90,11 @@ CORS_ORIGIN=https://www.yetrixtechnologies.com
 ## Vercel Environment
 
 ```text
+API_URL=https://api.yetrixtechnologies.com
 NEXT_PUBLIC_API_URL=https://api.yetrixtechnologies.com
+NEXT_PUBLIC_APP_URL=https://www.yetrixtechnologies.com
+NEXT_PUBLIC_MAIL_DOMAIN=yetrixtechnologies.com
+NEXT_PUBLIC_MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
 ```
 
 ## Docker Backend

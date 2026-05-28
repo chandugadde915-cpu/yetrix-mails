@@ -2,7 +2,7 @@
 
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export function LoginForm() {
@@ -11,6 +11,12 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (window.location.search.includes("session=expired")) {
+      setError("Please login again to open your workspace.");
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

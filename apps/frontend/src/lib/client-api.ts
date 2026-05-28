@@ -37,8 +37,14 @@ async function apiRequest<T>(
     error?: string;
   };
 
-  if (response.status === 401 && typeof window !== "undefined") {
-    window.location.assign("/login");
+  const missingSession =
+    response.status === 401 ||
+    (response.status === 503 &&
+      typeof payload.error === "string" &&
+      payload.error.toLowerCase().includes("workspace context"));
+
+  if (missingSession && typeof window !== "undefined") {
+    window.location.assign("/login?session=expired");
   }
 
   if (!response.ok || payload.success === false) {

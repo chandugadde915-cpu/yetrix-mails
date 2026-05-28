@@ -1,9 +1,9 @@
 import { SignupForm } from "@/components/SignupForm";
-import { requireAuthToken } from "@/lib/server-api";
+import { hasWorkspaceSession } from "@/lib/server-api";
 import { redirect } from "next/navigation";
 
 export default async function SignupPage() {
-  if (await requireAuthToken()) {
+  if (await hasWorkspaceSession()) {
     redirect("/setup");
   }
 
