@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
-import { adminRoles, requireRole } from "../../common/rbac";
+import { adminRoles, isSuperAdmin, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { DnsService } from "../dns/dns.service";
 import { MailcowService } from "../mailcow/mailcow.service";
@@ -19,7 +19,9 @@ export class DomainsController {
   @Get()
   async listDomains(@Req() req: AuthenticatedRequest) {
     const domains = await this.mailcow.listDomains();
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     const visibleDomains = ownedDomains
       ? domains.filter((domain) => ownedDomains.includes(domain.domain))
       : domains;
@@ -35,9 +37,13 @@ export class DomainsController {
   @Post()
   async createDomain(@Req() req: AuthenticatedRequest, @Body() body: CreateDomainDto) {
     requireRole(req, adminRoles);
-    await this.tenancy.ensureDomainAvailable(req.user?.workspaceId, body.domain);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureDomainAvailable(req.user?.workspaceId, body.domain);
+    }
     const result = await this.mailcow.addDomain(body);
-    await this.tenancy.recordDomain(req.user?.workspaceId, body.domain);
+    if (req.user?.workspaceId) {
+      await this.tenancy.recordDomain(req.user.workspaceId, body.domain);
+    }
     await this.auditService.record("domain.create", body.domain, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -50,9 +56,15 @@ export class DomainsController {
   @Delete(":domain")
   async deleteDomain(@Req() req: AuthenticatedRequest, @Param("domain") domain: string) {
     requireRole(req, adminRoles);
-    await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    }
     const result = await this.mailcow.deleteDomain(domain);
-    await this.tenancy.removeDomain(req.user?.workspaceId, domain);
+    if (isSuperAdmin(req)) {
+      await this.tenancy.removeDomainGlobally(domain);
+    } else {
+      await this.tenancy.removeDomain(req.user?.workspaceId, domain);
+    }
     await this.auditService.record("domain.delete", domain, req.user?.sub, req.user?.workspaceId);
     return result;
   }

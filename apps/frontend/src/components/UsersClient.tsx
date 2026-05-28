@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 
 export interface WorkspaceUser {
   id: string;
+  workspace_id?: string;
+  workspace_name?: string;
   email: string;
   name: string | null;
   role: string;
@@ -97,6 +99,8 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
           onChange={(event) => setForm({ ...form, role: event.target.value })}
         >
           <option value="admin">Admin</option>
+          <option value="superadmin">Superadmin</option>
+          <option value="owner">Owner</option>
           <option value="support">Support</option>
           <option value="viewer">Viewer</option>
         </select>
@@ -112,6 +116,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>Workspace</th>
             <th>Role</th>
             <th>Status</th>
             <th>Actions</th>
@@ -122,6 +127,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
             <tr key={user.id}>
               <td>{user.name ?? "User"}</td>
               <td>{user.email}</td>
+              <td>{user.workspace_name ?? "Current workspace"}</td>
               <td>{user.role}</td>
               <td>
                 <span className={`badge ${user.status === "active" ? "good" : "warn"}`}>
@@ -150,7 +156,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
           ))}
           {users.length === 0 ? (
             <tr>
-              <td colSpan={5}>No users yet.</td>
+              <td colSpan={6}>No users yet.</td>
             </tr>
           ) : null}
         </tbody>

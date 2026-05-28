@@ -195,6 +195,12 @@ GET  /api/operations/logs
 Operations endpoints keep Mailcow API keys backend-only and return safe fallback payloads when a
 Mailcow feature is not available on the current server version.
 
+## Roles
+
+`superadmin` can view global domains, mailboxes, aliases, users, audit events, and operations across
+all workspaces. Tenant roles remain `owner`, `admin`, `support`, and `viewer`; missing tenant
+workspace context should resolve to setup/empty states instead of a 503 response.
+
 Send body:
 
 ```json

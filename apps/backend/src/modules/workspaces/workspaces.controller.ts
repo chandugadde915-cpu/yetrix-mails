@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Put, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
-import { adminRoles, requireRole } from "../../common/rbac";
+import { adminRoles, isSuperAdmin, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -21,7 +21,7 @@ export class WorkspacesController {
 
   @Get("workspace")
   getWorkspace(@Req() req: AuthenticatedRequest) {
-    return this.workspaces.getWorkspace(req.user?.workspaceId);
+    return this.workspaces.getWorkspace(req.user?.workspaceId, isSuperAdmin(req));
   }
 
   @Put("workspace")
@@ -78,19 +78,19 @@ export class WorkspacesController {
   @Get("users")
   listUsers(@Req() req: AuthenticatedRequest) {
     requireRole(req, adminRoles);
-    return this.workspaces.listUsers(req.user?.workspaceId);
+    return this.workspaces.listUsers(req.user?.workspaceId, isSuperAdmin(req));
   }
 
   @Post("users")
   createUser(@Req() req: AuthenticatedRequest, @Body() body: CreateUserDto) {
     requireRole(req, adminRoles);
-    return this.workspaces.createUser(req.user?.workspaceId, body);
+    return this.workspaces.createUser(req.user?.workspaceId, body, isSuperAdmin(req));
   }
 
   @Put("users/:id")
   updateUser(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() body: UpdateUserDto) {
     requireRole(req, adminRoles);
-    return this.workspaces.updateUser(req.user?.workspaceId, id, body);
+    return this.workspaces.updateUser(req.user?.workspaceId, id, body, isSuperAdmin(req));
   }
 
   @Delete("users/:id")
@@ -99,7 +99,7 @@ export class WorkspacesController {
     if (id === req.user?.userId) {
       throw new BadRequestException("You cannot delete your own active session user");
     }
-    return this.workspaces.deleteUser(req.user?.workspaceId, id);
+    return this.workspaces.deleteUser(req.user?.workspaceId, id, isSuperAdmin(req));
   }
 
   @Post("me/password")

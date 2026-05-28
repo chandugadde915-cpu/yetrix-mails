@@ -37,7 +37,31 @@ export class AuditService {
     return event;
   }
 
-  async list(workspaceId?: string) {
+  async list(workspaceId?: string, includeAll = false) {
+    if (this.database.enabled && includeAll) {
+      const result = await this.database.query<{
+        id: string;
+        action: string;
+        target: string;
+        actor: string;
+        created_at: string;
+      }>(
+        `
+          SELECT id, action, target, actor, created_at
+          FROM audit_events
+          ORDER BY created_at DESC
+          LIMIT 250
+        `,
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        action: row.action,
+        target: row.target,
+        actor: row.actor,
+        createdAt: row.created_at,
+      }));
+    }
+
     if (this.database.enabled && workspaceId) {
       const result = await this.database.query<{
         id: string;

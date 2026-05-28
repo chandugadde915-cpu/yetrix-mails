@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
-import { adminRoles, operatorRoles, requireRole } from "../../common/rbac";
+import { adminRoles, isSuperAdmin, operatorRoles, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -18,7 +18,9 @@ export class AliasesController {
   @Get()
   async listAliases(@Req() req: AuthenticatedRequest) {
     const aliases = await this.mailcow.listAliases();
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     return ownedDomains
       ? aliases.filter((alias) => ownedDomains.includes(alias.address.split("@")[1] ?? ""))
       : aliases;
@@ -27,9 +29,13 @@ export class AliasesController {
   @Post()
   async createAlias(@Req() req: AuthenticatedRequest, @Body() body: CreateAliasDto) {
     requireRole(req, operatorRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.address);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.address);
+    }
     const result = await this.mailcow.addAlias(body);
-    await this.tenancy.recordAlias(req.user?.workspaceId, body);
+    if (req.user?.workspaceId) {
+      await this.tenancy.recordAlias(req.user.workspaceId, body);
+    }
     await this.auditService.record("alias.create", body.address, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -37,24 +43,28 @@ export class AliasesController {
   @Put(":id")
   async updateAlias(@Req() req: AuthenticatedRequest, @Param("id") id: string, @Body() body: UpdateAliasDto) {
     requireRole(req, operatorRoles);
-    if (body.address) {
+    if (!isSuperAdmin(req) && body.address) {
       await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.address);
     }
 
-    if (id.includes("@")) {
-      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, id);
-    } else {
-      const aliases = await this.mailcow.listAliases();
-      const current = aliases.find((alias) => alias.id === id || alias.address.toLowerCase() === id.toLowerCase());
-      if (current) {
-        await this.tenancy.ensureEmailAccess(req.user?.workspaceId, current.address);
+    if (!isSuperAdmin(req)) {
+      if (id.includes("@")) {
+        await this.tenancy.ensureEmailAccess(req.user?.workspaceId, id);
       } else {
-        throw new ForbiddenException("Alias does not belong to the current workspace");
+        const aliases = await this.mailcow.listAliases();
+        const current = aliases.find((alias) => alias.id === id || alias.address.toLowerCase() === id.toLowerCase());
+        if (current) {
+          await this.tenancy.ensureEmailAccess(req.user?.workspaceId, current.address);
+        } else {
+          throw new ForbiddenException("Alias does not belong to the current workspace");
+        }
       }
     }
 
     const result = await this.mailcow.editAlias(id, body);
-    await this.tenancy.updateAlias(req.user?.workspaceId, id, body);
+    if (!isSuperAdmin(req) && req.user?.workspaceId) {
+      await this.tenancy.updateAlias(req.user.workspaceId, id, body);
+    }
     await this.auditService.record("alias.update", id, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -62,20 +72,26 @@ export class AliasesController {
   @Delete(":id")
   async deleteAlias(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     requireRole(req, adminRoles);
-    if (id.includes("@")) {
-      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, id);
-    } else {
-      const aliases = await this.mailcow.listAliases();
-      const current = aliases.find((alias) => alias.id === id || alias.address.toLowerCase() === id.toLowerCase());
-      if (current) {
-        await this.tenancy.ensureEmailAccess(req.user?.workspaceId, current.address);
+    if (!isSuperAdmin(req)) {
+      if (id.includes("@")) {
+        await this.tenancy.ensureEmailAccess(req.user?.workspaceId, id);
       } else {
-        throw new ForbiddenException("Alias does not belong to the current workspace");
+        const aliases = await this.mailcow.listAliases();
+        const current = aliases.find((alias) => alias.id === id || alias.address.toLowerCase() === id.toLowerCase());
+        if (current) {
+          await this.tenancy.ensureEmailAccess(req.user?.workspaceId, current.address);
+        } else {
+          throw new ForbiddenException("Alias does not belong to the current workspace");
+        }
       }
     }
 
     const result = await this.mailcow.deleteAlias(id);
-    await this.tenancy.removeAlias(req.user?.workspaceId, id);
+    if (isSuperAdmin(req)) {
+      await this.tenancy.removeAliasGlobally(id);
+    } else {
+      await this.tenancy.removeAlias(req.user?.workspaceId, id);
+    }
     await this.auditService.record("alias.delete", id, req.user?.sub, req.user?.workspaceId);
     return result;
   }

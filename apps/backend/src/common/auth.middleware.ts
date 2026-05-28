@@ -7,7 +7,7 @@ export interface AuthenticatedRequest extends Request {
     sub: string;
     userId?: string;
     workspaceId?: string;
-    role: string;
+    role: "superadmin" | "owner" | "admin" | "support" | "viewer" | string;
   };
 }
 

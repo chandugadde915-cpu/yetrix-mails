@@ -12,6 +12,6 @@ export class CreateUserDto {
   password!: string;
 
   @IsOptional()
-  @IsIn(["owner", "admin", "support", "viewer"])
+  @IsIn(["superadmin", "owner", "admin", "support", "viewer"])
   role?: string;
 }

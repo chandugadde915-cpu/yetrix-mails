@@ -10,7 +10,7 @@ interface WorkspaceSummary {
   id: string;
   name: string;
   status: string;
-  counts: { domains: number; mailboxes: number; aliases: number; users: number };
+  counts: { workspaces?: number; domains: number; mailboxes: number; aliases: number; users: number };
 }
 
 export default async function SettingsPage() {
@@ -97,6 +97,10 @@ export default async function SettingsPage() {
               <strong>{workspace.data?.name ?? "Not configured"}</strong>
             </div>
             <div>
+              <span>Workspaces</span>
+              <strong>{workspace.data?.counts.workspaces ?? 1}</strong>
+            </div>
+            <div>
               <span>Domains</span>
               <strong>{workspace.data?.counts.domains ?? 0}</strong>
             </div>
@@ -123,7 +127,7 @@ export default async function SettingsPage() {
       <section className="panel section">
         <div className="title">
           <h1>Workspace Users</h1>
-          <p>Create tenant admins, support users, and viewers for this workspace.</p>
+          <p>Create admins, support users, viewers, and superadmin operators.</p>
         </div>
         <UsersClient initialUsers={users.data} />
       </section>

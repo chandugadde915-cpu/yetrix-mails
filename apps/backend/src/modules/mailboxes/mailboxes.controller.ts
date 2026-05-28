@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
-import { adminRoles, operatorRoles, requireRole } from "../../common/rbac";
+import { adminRoles, isSuperAdmin, operatorRoles, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -19,7 +19,9 @@ export class MailboxesController {
   @Get()
   async listMailboxes(@Req() req: AuthenticatedRequest) {
     const mailboxes = await this.mailcow.listMailboxes();
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     return ownedDomains
       ? mailboxes.filter((mailbox) => ownedDomains.includes(mailbox.domain))
       : mailboxes;
@@ -28,9 +30,13 @@ export class MailboxesController {
   @Post()
   async createMailbox(@Req() req: AuthenticatedRequest, @Body() body: CreateMailboxDto) {
     requireRole(req, operatorRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
     const result = await this.mailcow.addMailbox(body);
-    await this.tenancy.recordMailbox(req.user?.workspaceId, body);
+    if (req.user?.workspaceId) {
+      await this.tenancy.recordMailbox(req.user.workspaceId, body);
+    }
     await this.auditService.record("mailbox.create", body.email, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -38,9 +44,13 @@ export class MailboxesController {
   @Put(":email")
   async updateMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string, @Body() body: UpdateMailboxDto) {
     requireRole(req, operatorRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    }
     const result = await this.mailcow.editMailbox(email, body);
-    await this.tenancy.updateMailbox(req.user?.workspaceId, email, body);
+    if (!isSuperAdmin(req) && req.user?.workspaceId) {
+      await this.tenancy.updateMailbox(req.user.workspaceId, email, body);
+    }
     await this.auditService.record("mailbox.update", email, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -48,9 +58,15 @@ export class MailboxesController {
   @Delete(":email")
   async deleteMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string) {
     requireRole(req, adminRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    }
     const result = await this.mailcow.deleteMailbox(email);
-    await this.tenancy.removeMailbox(req.user?.workspaceId, email);
+    if (isSuperAdmin(req)) {
+      await this.tenancy.removeMailboxGlobally(email);
+    } else {
+      await this.tenancy.removeMailbox(req.user?.workspaceId, email);
+    }
     await this.auditService.record("mailbox.delete", email, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -58,7 +74,9 @@ export class MailboxesController {
   @Post(":email/password")
   async resetPassword(@Req() req: AuthenticatedRequest, @Param("email") email: string, @Body() body: ResetPasswordDto) {
     requireRole(req, operatorRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    }
     const result = await this.mailcow.resetMailboxPassword(email, body.password);
     await this.auditService.record("mailbox.password", email, req.user?.sub, req.user?.workspaceId);
     return result;
@@ -67,9 +85,13 @@ export class MailboxesController {
   @Post(":email/disable")
   async disableMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string) {
     requireRole(req, operatorRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    }
     const result = await this.mailcow.setMailboxActive(email, false);
-    await this.tenancy.updateMailbox(req.user?.workspaceId, email, { active: false });
+    if (!isSuperAdmin(req) && req.user?.workspaceId) {
+      await this.tenancy.updateMailbox(req.user.workspaceId, email, { active: false });
+    }
     await this.auditService.record("mailbox.disable", email, req.user?.sub, req.user?.workspaceId);
     return result;
   }
@@ -77,9 +99,13 @@ export class MailboxesController {
   @Post(":email/enable")
   async enableMailbox(@Req() req: AuthenticatedRequest, @Param("email") email: string) {
     requireRole(req, operatorRoles);
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, email);
+    }
     const result = await this.mailcow.setMailboxActive(email, true);
-    await this.tenancy.updateMailbox(req.user?.workspaceId, email, { active: true });
+    if (!isSuperAdmin(req) && req.user?.workspaceId) {
+      await this.tenancy.updateMailbox(req.user.workspaceId, email, { active: true });
+    }
     await this.auditService.record("mailbox.enable", email, req.user?.sub, req.user?.workspaceId);
     return result;
   }

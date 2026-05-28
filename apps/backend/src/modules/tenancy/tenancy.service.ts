@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import { DatabaseService } from "../database/database.service";
 
 interface DomainRow {
@@ -17,14 +17,19 @@ export class TenancyService {
   requireWorkspace(workspaceId?: string) {
     if (!this.database.enabled) return null;
     if (!workspaceId) {
-      throw new ServiceUnavailableException("Workspace context is missing");
+      throw new ForbiddenException("Workspace setup required");
     }
     return workspaceId;
   }
 
+  optionalWorkspace(workspaceId?: string) {
+    if (!this.database.enabled) return null;
+    return workspaceId ?? null;
+  }
+
   async listDomainNames(workspaceId?: string) {
-    const id = this.requireWorkspace(workspaceId);
-    if (!id) return null;
+    const id = this.optionalWorkspace(workspaceId);
+    if (!id) return this.database.enabled ? [] : null;
 
     const result = await this.database.query<{ domain: string }>(
       "SELECT domain FROM domains WHERE workspace_id = $1 ORDER BY created_at DESC",
@@ -97,6 +102,11 @@ export class TenancyService {
     ]);
   }
 
+  async removeDomainGlobally(domain: string) {
+    if (!this.database.enabled) return;
+    await this.database.query("DELETE FROM domains WHERE lower(domain) = $1", [domain.toLowerCase()]);
+  }
+
   async recordMailbox(
     workspaceId: string | undefined,
     input: { email: string; name?: string; quotaMb?: number; active?: boolean },
@@ -154,6 +164,11 @@ export class TenancyService {
       id,
       email.toLowerCase(),
     ]);
+  }
+
+  async removeMailboxGlobally(email: string) {
+    if (!this.database.enabled) return;
+    await this.database.query("DELETE FROM mailboxes WHERE lower(email) = $1", [email.toLowerCase()]);
   }
 
   async ensureEmailAccess(workspaceId: string | undefined, email: string) {
@@ -237,6 +252,13 @@ export class TenancyService {
       "DELETE FROM aliases WHERE workspace_id = $1 AND (id::text = $2 OR lower(address) = $2)",
       [id, idOrAddress.toLowerCase()],
     );
+  }
+
+  async removeAliasGlobally(idOrAddress: string) {
+    if (!this.database.enabled) return;
+    await this.database.query("DELETE FROM aliases WHERE id::text = $1 OR lower(address) = $1", [
+      idOrAddress.toLowerCase(),
+    ]);
   }
 
   private domainFromEmail(email: string) {

@@ -1,5 +1,6 @@
 import { Body, Controller, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
+import { isSuperAdmin } from "../../common/rbac";
 import { TenancyService } from "../tenancy/tenancy.service";
 import { ListMessagesDto } from "./dto/list-messages.dto";
 import { MailSessionDto } from "./dto/mail-session.dto";
@@ -16,37 +17,49 @@ export class MailWorkspaceController {
 
   @Post("messages")
   async listMessages(@Req() req: AuthenticatedRequest, @Body() body: ListMessagesDto) {
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
     return this.mailWorkspace.listMessages(body);
   }
 
   @Post("connection-test")
   async testConnection(@Req() req: AuthenticatedRequest, @Body() body: MailSessionDto) {
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
     return this.mailWorkspace.testConnection(body);
   }
 
   @Post("folders")
   async listFolders(@Req() req: AuthenticatedRequest, @Body() body: MailSessionDto) {
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
     return this.mailWorkspace.listFolders(body);
   }
 
   @Post("message")
   async getMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
     return this.mailWorkspace.getMessage(body);
   }
 
   @Post("message/delete")
   async deleteMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
     return this.mailWorkspace.deleteMessage(body);
   }
 
   @Post("send")
   async sendMessage(@Req() req: AuthenticatedRequest, @Body() body: SendMessageDto) {
-    await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.from);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.from);
+    }
     return this.mailWorkspace.sendMessage(body);
   }
 }

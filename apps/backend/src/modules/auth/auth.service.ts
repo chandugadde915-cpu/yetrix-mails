@@ -80,12 +80,11 @@ export class AuthService {
 
     const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 12;
     return {
-      token: this.sign({ sub: username, role: "admin", exp: expiresAt }),
+      token: this.sign({ sub: username, role: "superadmin", exp: expiresAt }),
       expiresAt,
       user: {
         username,
-        role: "admin",
-        workspaceId: "default",
+        role: "superadmin",
       },
     };
   }
@@ -194,6 +193,7 @@ export class AuthService {
     const username = this.username.trim().toLowerCase();
     const email = username.includes("@") ? username : `${username}@${mailDomain}`;
     const workspaceName = this.config.get<string>("BOOTSTRAP_WORKSPACE_NAME", "Yetrix Mails");
+    const bootstrapRole = this.config.get<string>("BOOTSTRAP_ADMIN_ROLE", "superadmin");
     const workspace = await this.database.query<{ id: string }>(
       `
         INSERT INTO workspaces(name)
@@ -209,14 +209,26 @@ export class AuthService {
     );
     const workspaceId = existing.rows[0]?.workspace_id ?? workspace.rows[0]?.id;
 
-    if (!workspaceId || existing.rowCount) return;
+    if (existing.rowCount) {
+      await this.database.query(
+        `
+          UPDATE users
+          SET role = $3, status = 'active', updated_at = now()
+          WHERE lower(email) = $1 OR lower(username) = $2
+        `,
+        [email, username, bootstrapRole],
+      );
+      return;
+    }
+
+    if (!workspaceId) return;
 
     await this.database.query(
       `
         INSERT INTO users(workspace_id, username, email, name, password_hash, role)
-        VALUES ($1, $2, $3, 'Admin', $4, 'owner')
+        VALUES ($1, $2, $3, 'Admin', $4, $5)
       `,
-      [workspaceId, username, email, hashPassword(this.password)],
+      [workspaceId, username, email, hashPassword(this.password), bootstrapRole],
     );
 
     await this.database.query(

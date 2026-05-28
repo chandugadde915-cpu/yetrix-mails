@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
-import { adminRoles, requireRole } from "../../common/rbac";
+import { adminRoles, isSuperAdmin, requireRole } from "../../common/rbac";
 import { AuditService } from "../audit/audit.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -22,15 +22,18 @@ export class OperationsController {
       this.mailcow.listMailboxes(),
       this.mailcow.listAliases(),
     ]);
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     const owned = new Set((ownedDomains ?? []).map((domain) => domain.toLowerCase()));
+    const canSee = (domain: string) => isSuperAdmin(req) || owned.has(domain.toLowerCase());
 
     return {
       status,
       counts: {
-        domains: domains.filter((domain) => owned.has(domain.domain.toLowerCase())).length,
-        mailboxes: mailboxes.filter((mailbox) => owned.has(mailbox.domain.toLowerCase())).length,
-        aliases: aliases.filter((alias) => owned.has(alias.address.split("@")[1]?.toLowerCase() ?? "")).length,
+        domains: domains.filter((domain) => canSee(domain.domain)).length,
+        mailboxes: mailboxes.filter((mailbox) => canSee(mailbox.domain)).length,
+        aliases: aliases.filter((alias) => canSee(alias.address.split("@")[1] ?? "")).length,
       },
       capabilities: [
         "DKIM lookup and generation",
@@ -43,8 +46,11 @@ export class OperationsController {
 
   @Get("routing")
   async routing(@Req() req: AuthenticatedRequest) {
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     const owned = new Set((ownedDomains ?? []).map((domain) => domain.toLowerCase()));
+    const canSee = (domain: string) => isSuperAdmin(req) || owned.has(domain.toLowerCase());
     const [domains, mailboxes, aliases] = await Promise.all([
       this.mailcow.listDomains(),
       this.mailcow.listMailboxes(),
@@ -52,15 +58,17 @@ export class OperationsController {
     ]);
 
     return {
-      domains: domains.filter((domain) => owned.has(domain.domain.toLowerCase())),
-      mailboxes: mailboxes.filter((mailbox) => owned.has(mailbox.domain.toLowerCase())),
-      aliases: aliases.filter((alias) => owned.has(alias.address.split("@")[1]?.toLowerCase() ?? "")),
+      domains: domains.filter((domain) => canSee(domain.domain)),
+      mailboxes: mailboxes.filter((mailbox) => canSee(mailbox.domain)),
+      aliases: aliases.filter((alias) => canSee(alias.address.split("@")[1] ?? "")),
     };
   }
 
   @Get("dkim/:domain")
   async getDkim(@Req() req: AuthenticatedRequest, @Param("domain") domain: string) {
-    await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    }
     return this.mailcow.safeOperation("dkim", "GET", `/get/dkim/${domain}`);
   }
 
@@ -71,7 +79,9 @@ export class OperationsController {
     @Body() body: GenerateDkimDto,
   ) {
     requireRole(req, adminRoles);
-    await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
+    }
     const result = await this.mailcow.safeOperation("dkim.generate", "POST", "/add/dkim", {
       domains: [domain],
       dkim_selector: body.selector ?? "dkim",
@@ -84,21 +94,27 @@ export class OperationsController {
   @Get("quarantine")
   async quarantine(@Req() req: AuthenticatedRequest) {
     requireRole(req, adminRoles);
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     const result = await this.mailcow.safeOperation("quarantine", "GET", "/get/quarantine/all");
-    return this.filterOperationByDomains(result, ownedDomains ?? []);
+    return isSuperAdmin(req) ? result : this.filterOperationByDomains(result, ownedDomains ?? []);
   }
 
   @Get("logs")
   async logs(@Req() req: AuthenticatedRequest) {
     requireRole(req, adminRoles);
-    const ownedDomains = await this.tenancy.listDomainNames(req.user?.workspaceId);
+    const ownedDomains = isSuperAdmin(req)
+      ? null
+      : await this.tenancy.listDomainNames(req.user?.workspaceId);
     const logs = await Promise.all([
       this.mailcow.safeOperation("postfix", "GET", "/get/logs/postfix/100"),
       this.mailcow.safeOperation("dovecot", "GET", "/get/logs/dovecot/100"),
       this.mailcow.safeOperation("rspamd", "GET", "/get/logs/rspamd-history/100"),
     ]);
-    return logs.map((log) => this.filterOperationByDomains(log, ownedDomains ?? []));
+    return isSuperAdmin(req)
+      ? logs
+      : logs.map((log) => this.filterOperationByDomains(log, ownedDomains ?? []));
   }
 
   private filterOperationByDomains<T extends { data?: unknown }>(operation: T, domains: string[]) {

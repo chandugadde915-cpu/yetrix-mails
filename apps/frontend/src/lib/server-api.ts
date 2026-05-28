@@ -147,7 +147,11 @@ function isMissingWorkspaceContext(error: unknown) {
     return false;
   }
 
-  return error.status === 503 && error.message.toLowerCase().includes("workspace context");
+  const message = error.message.toLowerCase();
+  return (
+    (error.status === 503 && message.includes("workspace context")) ||
+    (error.status === 403 && message.includes("workspace setup"))
+  );
 }
 
 async function parsePayload(response: Response) {

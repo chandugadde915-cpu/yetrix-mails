@@ -125,4 +125,5 @@ npm --workspace apps/backend run build
 - The mail engine UI should remain internal/admin-only.
 - Frontend must never call the mail engine directly.
 - DNS status, CRUD, Mailcow sync, operations, inbox sync, reading, deletion, and sending go through the backend.
-- Admin/operator actions are role-gated in the backend; grow this into MFA/SSO and full session management before selling to outside tenants.
+- Admin/operator actions are role-gated in the backend. The bootstrap admin is promoted to `superadmin` by default, which can see global domains, mailboxes, aliases, users, audit, and operations across workspaces.
+- Tenant pages handle missing workspace context as setup/empty state instead of crashing with a 503.
