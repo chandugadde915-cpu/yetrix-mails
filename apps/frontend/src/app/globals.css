@@ -27,7 +27,8 @@ a {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -305,16 +306,25 @@ input {
 }
 
 .mailbox-create {
-  grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr) 110px auto;
+  grid-template-columns:
+    minmax(140px, 0.8fr) minmax(180px, 1fr) minmax(150px, 0.8fr)
+    minmax(150px, 0.8fr) 110px auto;
 }
 
 .inline-create input,
-.mailbox-create input {
+.mailbox-create input,
+.mailbox-create select {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 12px;
   background: #fbfcfe;
+}
+
+.warn-notice {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #92400e;
 }
 
 .inline-create span {
@@ -392,6 +402,124 @@ input {
 .webmail-layout {
   display: grid;
   gap: 16px;
+}
+
+.launch-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
+  gap: 18px;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(15, 118, 110, 0.15), transparent 38%),
+    linear-gradient(250deg, rgba(37, 99, 235, 0.12), transparent 34%),
+    #ffffff;
+}
+
+.launch-hero h2 {
+  max-width: 820px;
+  margin: 14px 0 10px;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.launch-hero p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.launch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.launch-meter {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 180px;
+  padding: 18px;
+  border: 1px solid rgba(15, 118, 110, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.launch-meter strong {
+  font-size: 52px;
+  line-height: 1;
+}
+
+.launch-meter span {
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.flow-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.flow-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 24px;
+  gap: 10px;
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.flow-step.complete {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.flow-step-index {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 900;
+}
+
+.flow-step.complete .flow-step-index {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.flow-step h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.flow-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.flow-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.no-top {
+  margin-top: 0;
 }
 
 .domain-command {
@@ -1366,6 +1494,9 @@ input {
   .dashboard-layout,
   .domain-command,
   .domain-board,
+  .launch-hero,
+  .flow-grid,
+  .flow-detail-grid,
   .settings-grid,
   .webmail-layout,
   .inline-create,

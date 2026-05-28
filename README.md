@@ -35,10 +35,25 @@ Pages:
 /
 /login
 /dashboard
+/setup
 /domains
 /mailboxes
 /aliases
+/webmail
+/billing
 /settings
+```
+
+The production workspace flow is:
+
+```text
+Login
+  -> Launch Flow
+  -> Add domain
+  -> Verify MX/SPF/DKIM/DMARC
+  -> Create mailbox
+  -> Open webmail or configure IMAP/SMTP
+  -> Send and receive mail through Mailcow
 ```
 
 Backend admin login:
@@ -97,4 +112,4 @@ npm --workspace apps/backend run build
 
 - Mailcow admin UI should remain admin-only.
 - Frontend must never call Mailcow directly.
-- DNS status in the UI is a placeholder until live DNS verification is added.
+- DNS status is checked through the backend; the browser never calls Mailcow directly.

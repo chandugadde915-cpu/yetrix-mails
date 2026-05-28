@@ -1,18 +1,31 @@
 "use client";
 
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
-import { formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
-import { KeyRound, Plus, Power, Save, Trash2 } from "lucide-react";
-import { FormEvent, useEffect, useState, useTransition } from "react";
+import { Domain, formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
+import { ExternalLink, KeyRound, Plus, Power, Save, Trash2 } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbox[] }) {
+export function MailboxesClient({
+  initialMailboxes,
+  domains,
+}: {
+  initialMailboxes: Mailbox[];
+  domains: Domain[];
+}) {
   const router = useRouter();
+  const domainOptions = useMemo(() => domains.map((domain) => domain.domain), [domains]);
   const [mailboxes, setMailboxes] = useState(initialMailboxes);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, number>>(() =>
     Object.fromEntries(initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb ?? 0])),
   );
-  const [form, setForm] = useState({ email: "", name: "", password: "", quotaMb: 2048 });
+  const [form, setForm] = useState({
+    localPart: "",
+    domain: domainOptions[0] ?? "yetrixtechnologies.com",
+    name: "",
+    password: "",
+    quotaMb: 2048,
+  });
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -23,12 +36,24 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
     );
   }, [initialMailboxes]);
 
+  useEffect(() => {
+    if (domainOptions.length > 0 && !domainOptions.includes(form.domain)) {
+      setForm((current) => ({ ...current, domain: domainOptions[0] }));
+    }
+  }, [domainOptions, form.domain]);
+
   async function createMailbox(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const email = `${form.localPart.trim().toLowerCase()}@${form.domain}`;
     try {
-      await apiPost("/api/mailboxes", form);
+      await apiPost("/api/mailboxes", {
+        email,
+        name: form.name,
+        password: form.password,
+        quotaMb: form.quotaMb,
+      });
       setMessage("Mailbox created.");
-      setForm({ email: "", name: "", password: "", quotaMb: 2048 });
+      setForm((current) => ({ ...current, localPart: "", name: "", password: "", quotaMb: 2048 }));
       startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not create mailbox.");
@@ -85,12 +110,28 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
     <>
       <form className="mailbox-create" id="mailbox-create" onSubmit={createMailbox}>
         <input
-          aria-label="Mailbox email"
-          placeholder="user@yetrixtechnologies.com"
-          value={form.email}
-          onChange={(event) => setForm({ ...form, email: event.target.value })}
+          aria-label="Mailbox username"
+          placeholder="user"
+          value={form.localPart}
+          onChange={(event) => setForm({ ...form, localPart: event.target.value })}
+          pattern="^[a-zA-Z0-9._%+-]+$"
           required
         />
+        <select
+          aria-label="Mailbox domain"
+          value={form.domain}
+          onChange={(event) => setForm({ ...form, domain: event.target.value })}
+          required
+        >
+          {domainOptions.map((domain) => (
+            <option key={domain} value={domain}>
+              @{domain}
+            </option>
+          ))}
+          {domainOptions.length === 0 ? (
+            <option value="yetrixtechnologies.com">@yetrixtechnologies.com</option>
+          ) : null}
+        </select>
         <input
           aria-label="Display name"
           placeholder="Display name"
@@ -114,11 +155,14 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
           value={form.quotaMb}
           onChange={(event) => setForm({ ...form, quotaMb: Number(event.target.value) })}
         />
-        <button className="button" disabled={isPending}>
+        <button className="button" disabled={isPending || domainOptions.length === 0}>
           <Plus size={18} />
           Create
         </button>
       </form>
+      {domainOptions.length === 0 ? (
+        <div className="notice warn-notice">Add a domain before creating production mailboxes.</div>
+      ) : null}
       {message ? <div className="notice">{message}</div> : null}
 
       <section className="panel">
@@ -194,6 +238,15 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
                     >
                       <Power size={16} />
                     </button>
+                    <a
+                      className="icon-button"
+                      href="https://mail.yetrixtechnologies.com/SOGo/"
+                      rel="noreferrer"
+                      target="_blank"
+                      title="Open webmail"
+                    >
+                      <ExternalLink size={16} />
+                    </a>
                     <button
                       className="icon-button danger-icon"
                       title="Delete"

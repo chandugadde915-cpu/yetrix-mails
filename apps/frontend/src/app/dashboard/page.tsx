@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/AppShell";
+import { WorkspaceFlow } from "@/components/WorkspaceFlow";
 import { apiGet, requireAuthToken } from "@/lib/server-api";
-import { Domain, Mailbox, domainHealth, usagePercent } from "@/lib/platform-data";
+import { Domain, Mailbox, PlatformStatus, domainHealth, usagePercent } from "@/lib/platform-data";
 import { Activity, Database, Globe2, Inbox, Plus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,8 +13,11 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const domains = await apiGet<Domain[]>("/api/domains");
-  const mailboxes = await apiGet<Mailbox[]>("/api/mailboxes");
+  const [domains, mailboxes, status] = await Promise.all([
+    apiGet<Domain[]>("/api/domains"),
+    apiGet<Mailbox[]>("/api/mailboxes"),
+    apiGet<PlatformStatus>("/api/status"),
+  ]);
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const metrics = {
     totalDomains: domains.length,
@@ -81,6 +85,8 @@ export default async function DashboardPage() {
           <div className="value">{metrics.deliveryRate}</div>
         </div>
       </section>
+
+      <WorkspaceFlow domains={domains} mailboxes={mailboxes} status={status} />
 
       <section className="dashboard-layout section">
         <div className="panel">

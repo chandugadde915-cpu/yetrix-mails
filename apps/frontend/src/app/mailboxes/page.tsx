@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/AppShell";
 import { MailboxesClient } from "@/components/MailboxesClient";
-import { Mailbox } from "@/lib/platform-data";
+import { Domain, Mailbox } from "@/lib/platform-data";
 import { apiGet, requireAuthToken } from "@/lib/server-api";
 import { Plus } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -12,7 +12,10 @@ export default async function MailboxesPage() {
     redirect("/login");
   }
 
-  const mailboxes = await apiGet<Mailbox[]>("/api/mailboxes");
+  const [mailboxes, domains] = await Promise.all([
+    apiGet<Mailbox[]>("/api/mailboxes"),
+    apiGet<Domain[]>("/api/domains"),
+  ]);
 
   return (
     <AppShell>
@@ -27,7 +30,7 @@ export default async function MailboxesPage() {
         </a>
       </div>
 
-      <MailboxesClient initialMailboxes={mailboxes} />
+      <MailboxesClient initialMailboxes={mailboxes} domains={domains} />
     </AppShell>
   );
 }

@@ -1,11 +1,22 @@
 "use client";
 
-import { AtSign, CreditCard, Globe2, Inbox, LayoutDashboard, LogOut, Mail, Settings } from "lucide-react";
+import {
+  AtSign,
+  CreditCard,
+  Globe2,
+  Inbox,
+  LayoutDashboard,
+  ListChecks,
+  LogOut,
+  Mail,
+  Settings,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/setup", label: "Launch Flow", icon: ListChecks },
   { href: "/domains", label: "Domains", icon: Globe2 },
   { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
   { href: "/aliases", label: "Aliases", icon: AtSign },
