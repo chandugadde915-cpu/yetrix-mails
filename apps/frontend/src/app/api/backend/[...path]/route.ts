@@ -42,7 +42,7 @@ async function proxy(request: NextRequest, context: Params) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "API request failed",
+        error: error instanceof Error ? error.message : "Backend proxy request failed",
       },
       { status: error instanceof ApiRequestError ? error.status : 500 },
     );

@@ -7,24 +7,38 @@ type Params = {
 };
 
 export async function POST(request: NextRequest, context: Params) {
-  const apiUrl = process.env.API_URL;
+  const apiUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) {
     return NextResponse.json(
-      { success: false, error: "API_URL is not configured" },
+      { success: false, error: "API_URL or NEXT_PUBLIC_API_URL is not configured" },
       { status: 500 },
     );
   }
 
   const { path } = await context.params;
-  const response = await fetch(`${apiUrl.replace(/\/$/, "")}/public/mail/${path.join("/")}`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-    },
-    body: await request.text(),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl.replace(/\/$/, "")}/public/mail/${path.join("/")}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: await request.text(),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? `Backend API is unreachable: ${error.message}`
+            : "Backend API is unreachable",
+      },
+      { status: 502 },
+    );
+  }
 
   const text = await response.text();
   return new NextResponse(text, {

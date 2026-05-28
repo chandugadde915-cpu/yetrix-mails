@@ -107,16 +107,26 @@ export async function hasWorkspaceSession() {
 }
 
 export async function backendRequest<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getServerApiBaseUrl()}${path}`, {
-    ...init,
-    cache: "no-store",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${getServerApiBaseUrl()}${path}`, {
+      ...init,
+      cache: "no-store",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch (error) {
+    throw new ApiRequestError(
+      error instanceof Error
+        ? `Backend API is unreachable: ${error.message}`
+        : "Backend API is unreachable",
+      502,
+    );
+  }
 
   const payload = (await parsePayload(response)) as {
     success?: boolean;
@@ -132,9 +142,9 @@ export async function backendRequest<T>(path: string, token?: string, init?: Req
 }
 
 function getServerApiBaseUrl() {
-  const apiUrl = process.env.API_URL;
+  const apiUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) {
-    throw new Error("API_URL is not configured");
+    throw new ApiRequestError("API_URL or NEXT_PUBLIC_API_URL is not configured", 500);
   }
 
   return apiUrl.replace(/\/$/, "");
