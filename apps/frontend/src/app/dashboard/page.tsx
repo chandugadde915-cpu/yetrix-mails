@@ -266,6 +266,7 @@ function initials(value: string) {
 }
 
 function formatRole(role: string) {
+  if (role === "owner") return "Admin";
   return role
     .split(/[_-]/)
     .filter(Boolean)

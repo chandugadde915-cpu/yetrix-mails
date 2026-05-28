@@ -122,10 +122,10 @@ export function workspaceProgress(domains: Domain[], mailboxes: Mailbox[], statu
       title: "Webmail ready",
       detail:
         activeMailboxes.length > 0
-          ? "Users can sign in to the Yetrix mail workspace."
-          : "Create a mailbox before opening the Yetrix mail workspace.",
+          ? "Users can sign in from the separate mailbox login."
+          : "Create a mailbox before opening mailbox login.",
       complete: activeMailboxes.length > 0,
-      href: "/webmail",
+      href: "/mail-login",
     },
   ];
 

@@ -100,7 +100,6 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
         >
           <option value="admin">Admin</option>
           <option value="superadmin">Superadmin</option>
-          <option value="owner">Owner</option>
           <option value="support">Support</option>
           <option value="viewer">Viewer</option>
         </select>
@@ -128,7 +127,7 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
               <td>{user.name ?? "User"}</td>
               <td>{user.email}</td>
               <td>{user.workspace_name ?? "Current workspace"}</td>
-              <td>{user.role}</td>
+              <td>{formatRole(user.role)}</td>
               <td>
                 <span className={`badge ${user.status === "active" ? "good" : "warn"}`}>
                   {user.status}
@@ -163,4 +162,13 @@ export function UsersClient({ initialUsers }: { initialUsers: WorkspaceUser[] })
       </table>
     </>
   );
+}
+
+function formatRole(role: string) {
+  if (role === "owner") return "Admin";
+  return role
+    .split(/[_-]/)
+    .filter(Boolean)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
 }

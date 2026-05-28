@@ -5,7 +5,6 @@ import {
   Globe2,
   Inbox,
   LayoutDashboard,
-  Mail,
   SlidersHorizontal,
   ShieldCheck,
   Settings,
@@ -36,12 +35,6 @@ export const navSections: NavSection[] = [
       { href: "/domains", label: "Domains", icon: Globe2 },
       { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
       { href: "/aliases", label: "Aliases", icon: AtSign },
-    ],
-  },
-  {
-    title: "Mail",
-    items: [
-      { href: "/webmail", label: "Mail Workspace", icon: Mail },
     ],
   },
   {

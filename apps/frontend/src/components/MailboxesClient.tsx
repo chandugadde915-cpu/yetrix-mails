@@ -486,7 +486,7 @@ export function MailboxesClient({
         <div className="split-row">
           <div className="title">
             <h1>Mailbox Directory</h1>
-            <p>Reset passwords, update quotas, disable users, or open the mail workspace.</p>
+            <p>Reset passwords, update quotas, disable users, or open the separate mailbox login.</p>
           </div>
           <span className="badge good">{mailboxes.length} total</span>
         </div>
@@ -562,7 +562,7 @@ export function MailboxesClient({
                     >
                       <Power size={16} />
                     </button>
-                    <a className="icon-button" href="/webmail" title="Open Yetrix mail workspace">
+                    <a className="icon-button" href="/mail-login" title="Open mailbox login">
                       <Mail size={16} />
                     </a>
                     <button

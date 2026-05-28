@@ -47,6 +47,11 @@ export default async function SuperadminPage() {
   const verifiedDomains = domains.data.filter((domain) => domainHealth(domain).healthy).length;
   const activeMailboxes = mailboxes.data.filter((mailbox) => mailbox.status === "active").length;
   const activeAliases = aliases.data.filter((alias) => alias.status === "active").length;
+  const superadmins = users.data.filter((user) => user.role === "superadmin").length;
+  const customerAdmins = users.data.filter((user) => ["owner", "admin"].includes(user.role)).length;
+  const supportUsers = users.data.filter((user) => user.role === "support").length;
+  const viewers = users.data.filter((user) => user.role === "viewer").length;
+  const totalPeople = users.data.length + mailboxes.data.length;
 
   if (accessDenied) {
     return (
@@ -114,7 +119,8 @@ export default async function SuperadminPage() {
 
       <section className="metric-grid">
         <MetricCard icon={Building2} label="Active workspaces" value={`${activeWorkspaces}/${workspaces.data.length}`} />
-        <MetricCard icon={Users} label="Users" value={users.data.length} />
+        <MetricCard icon={Users} label="Total people" value={totalPeople} />
+        <MetricCard icon={ShieldCheck} label="Customer admins" value={customerAdmins} />
         <MetricCard icon={Globe2} label="Verified domains" value={`${verifiedDomains}/${domains.data.length}`} />
         <MetricCard icon={Inbox} label="Active mailboxes" value={`${activeMailboxes}/${mailboxes.data.length}`} />
       </section>
@@ -168,24 +174,113 @@ export default async function SuperadminPage() {
         <div className="panel">
           <div className="title">
             <h1>Admin Coverage</h1>
-            <p>Users and roles across every tenant.</p>
+            <p>Control-panel roles across every tenant.</p>
           </div>
-          <div className="admin-list">
-            {users.data.slice(0, 10).map((user) => (
-              <div className="admin-row" key={user.id}>
-                <span className="admin-avatar">{initials(user.name ?? user.email)}</span>
-                <span>
-                  <strong>{user.name ?? user.email}</strong>
-                  <small>{user.workspace_name ?? "Workspace"} - {user.role}</small>
-                </span>
-                <span className={`badge ${user.status === "active" ? "good" : "warn"}`}>
-                  {user.status}
-                </span>
-              </div>
-            ))}
-            {users.data.length === 0 ? <div className="muted-text">No users found.</div> : null}
+          <div className="role-summary">
+            <div>
+              <span>Superadmins</span>
+              <strong>{superadmins}</strong>
+            </div>
+            <div>
+              <span>Admins</span>
+              <strong>{customerAdmins}</strong>
+            </div>
+            <div>
+              <span>Support</span>
+              <strong>{supportUsers}</strong>
+            </div>
+            <div>
+              <span>Viewers</span>
+              <strong>{viewers}</strong>
+            </div>
           </div>
         </div>
+      </section>
+
+      <section className="panel section">
+        <div className="split-row">
+          <div className="title">
+            <h1>All Admins & Users</h1>
+            <p>Every control-panel login across all customer workspaces.</p>
+          </div>
+          <span className="badge good">{users.data.length} control users</span>
+        </div>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Workspace</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.data.map((user) => (
+              <tr key={user.id}>
+                <td>{user.name ?? "User"}</td>
+                <td>{user.email}</td>
+                <td>{user.workspace_name ?? "Workspace"}</td>
+                <td>{formatRole(user.role)}</td>
+                <td>
+                  <span className={`badge ${user.status === "active" ? "good" : "warn"}`}>
+                    {user.status}
+                  </span>
+                </td>
+                <td>{formatDate(user.created_at ?? user.createdAt)}</td>
+              </tr>
+            ))}
+            {users.data.length === 0 ? (
+              <tr>
+                <td colSpan={6}>No users found.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="panel section">
+        <div className="split-row">
+          <div className="title">
+            <h1>All Mailbox Users</h1>
+            <p>Every mailbox account created under customer domains.</p>
+          </div>
+          <span className="badge good">{mailboxes.data.length} mailbox users</span>
+        </div>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Email</th>
+              <th>Domain</th>
+              <th>Name</th>
+              <th>Quota</th>
+              <th>Status</th>
+              <th>Last login</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mailboxes.data.map((mailbox) => (
+              <tr key={mailbox.address}>
+                <td>{mailbox.address}</td>
+                <td>{mailbox.domain}</td>
+                <td>{mailbox.name ?? "Mailbox user"}</td>
+                <td>{mailbox.quotaMb} MB</td>
+                <td>
+                  <span className={`badge ${mailbox.status === "active" ? "good" : "warn"}`}>
+                    {mailbox.status}
+                  </span>
+                </td>
+                <td>{String(mailbox.lastLogin ?? "Not available")}</td>
+              </tr>
+            ))}
+            {mailboxes.data.length === 0 ? (
+              <tr>
+                <td colSpan={6}>No mailbox users found.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
       </section>
 
       <section className="superadmin-layout section">
@@ -279,11 +374,11 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
-function initials(value: string) {
-  return value
-    .split(/[ @.]/)
+function formatRole(role: string) {
+  if (role === "owner") return "Admin";
+  return role
+    .split(/[_-]/)
     .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
 }

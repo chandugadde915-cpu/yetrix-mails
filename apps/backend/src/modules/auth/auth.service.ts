@@ -113,7 +113,7 @@ export class AuthService {
     const user = await this.database.query<UserRow>(
       `
         INSERT INTO users(workspace_id, username, email, name, password_hash, role)
-        VALUES ($1, $2, $3, $4, $5, 'owner')
+        VALUES ($1, $2, $3, $4, $5, 'admin')
         RETURNING id, workspace_id, username, email, name, password_hash, role, status
       `,
       [

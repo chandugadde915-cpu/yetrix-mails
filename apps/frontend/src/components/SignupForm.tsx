@@ -59,7 +59,7 @@ export function SignupForm() {
           <Building2 size={22} />
         </div>
         <h1>Create Workspace</h1>
-        <p>Start a workspace for domains, users, mailboxes, and mail access.</p>
+        <p>Use your email to create an admin workspace for domains, users, and mailboxes.</p>
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
             Workspace
@@ -81,6 +81,7 @@ export function SignupForm() {
             Email
             <input
               type="email"
+              placeholder="you@gmail.com"
               value={form.email}
               onChange={(event) => setForm({ ...form, email: event.target.value })}
               required
