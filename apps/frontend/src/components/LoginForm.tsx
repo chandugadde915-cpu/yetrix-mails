@@ -6,20 +6,35 @@ import { useRouter } from "next/navigation";
 
 export function LoginForm() {
   const router = useRouter();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
+    setLoading(true);
 
-    if (username === "admin" && password === "admin") {
-      window.localStorage.setItem("yetrix-admin", "true");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      const payload = (await response.json()) as { success?: boolean; error?: string };
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.error ?? "Login failed");
+      }
       router.push("/dashboard");
-      return;
+      router.refresh();
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Login failed");
+    } finally {
+      setLoading(false);
     }
-
-    setError("Use admin / admin for this demo login.");
   }
 
   return (
@@ -42,7 +57,7 @@ export function LoginForm() {
           <Mail size={22} />
         </div>
         <h1>Admin Login</h1>
-        <p>Enter the temporary demo credentials to open the workspace dashboard.</p>
+        <p>Enter your backend admin credentials to open the workspace dashboard.</p>
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
             Username
@@ -57,9 +72,9 @@ export function LoginForm() {
             />
           </label>
           {error ? <div className="form-error">{error}</div> : null}
-          <button className="button auth-button" type="submit">
+          <button className="button auth-button" type="submit" disabled={loading}>
             <LockKeyhole size={18} />
-            Login
+            {loading ? "Signing in" : "Login"}
             <ArrowRight size={18} />
           </button>
         </form>

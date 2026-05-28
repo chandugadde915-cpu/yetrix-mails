@@ -1,13 +1,3 @@
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-export async function apiGet<T>(path: string, fallback: T): Promise<T> {
-  try {
-    return await apiRequest<T>(path);
-  } catch {
-    return fallback;
-  }
-}
-
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return apiRequest<T>(path, {
     method: "POST",
@@ -30,15 +20,10 @@ export async function apiDelete<T>(path: string): Promise<T> {
 
 async function apiRequest<T>(
   path: string,
-  options: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown } = {},
+  options: { method: "POST" | "PUT" | "DELETE"; body?: unknown },
 ): Promise<T> {
-  if (!apiBaseUrl) {
-    throw new Error("NEXT_PUBLIC_API_URL is not configured");
-  }
-
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: options.method ?? "GET",
-    cache: "no-store",
+  const response = await fetch(`/api/backend${path}`, {
+    method: options.method,
     headers: {
       accept: "application/json",
       "content-type": "application/json",

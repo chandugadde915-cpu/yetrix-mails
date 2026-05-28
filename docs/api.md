@@ -21,9 +21,22 @@ https://api.yetrixtechnologies.com
 ```text
 GET /health
 GET /api/status
+GET /api/audit
 ```
 
 `/api/status` includes backend health and Mailcow connection status.
+
+All `/api/*` routes require:
+
+```text
+Authorization: Bearer <token>
+```
+
+Get the token from:
+
+```text
+POST /auth/login
+```
 
 ## Domains
 
@@ -31,6 +44,7 @@ GET /api/status
 GET    /api/domains
 POST   /api/domains
 DELETE /api/domains/:domain
+GET    /api/domains/:domain/dns-status
 ```
 
 Create body:

@@ -1,6 +1,6 @@
 "use client";
 
-import { apiDelete, apiPost } from "@/lib/api";
+import { apiDelete, apiPost } from "@/lib/client-api";
 import { Domain } from "@/lib/dummy-data";
 import { CheckCircle2, Clock3, Copy, Globe2, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { FormEvent, useState, useTransition } from "react";
@@ -20,18 +20,26 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
   async function addDomain(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    await apiPost("/api/domains", { domain });
-    setDomain("");
-    setMessage("Domain added. DNS placeholders are ready.");
-    startTransition(() => router.refresh());
+    try {
+      await apiPost("/api/domains", { domain });
+      setDomain("");
+      setMessage("Domain added. DNS verification is ready.");
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not add domain.");
+    }
   }
 
   async function deleteDomain(value: string) {
     setMessage("");
-    await apiDelete(`/api/domains/${encodeURIComponent(value)}`);
-    setDomains((current) => current.filter((item) => item.domain !== value));
-    setMessage(`${value} deleted.`);
-    startTransition(() => router.refresh());
+    try {
+      await apiDelete(`/api/domains/${encodeURIComponent(value)}`);
+      setDomains((current) => current.filter((item) => item.domain !== value));
+      setMessage(`${value} deleted.`);
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not delete ${value}.`);
+    }
   }
 
   return (
@@ -44,8 +52,8 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
           </div>
           <h2>Verify ownership, secure sending, and route mail from one place.</h2>
           <p>
-            This view now reads from your backend API. DNS status remains a placeholder until live
-            DNS verification is connected.
+            This view reads live Mailcow domains through your backend and checks MX, SPF, DKIM,
+            and DMARC against public DNS.
           </p>
         </div>
         <div className="domain-scoreboard">
@@ -139,7 +147,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
             </div>
 
             <div className="domain-actions">
-              <button className="button secondary" onClick={() => startTransition(() => router.refresh())}>
+                <button className="button secondary" onClick={() => startTransition(() => router.refresh())}>
                 <RefreshCw size={17} />
                 Refresh
               </button>

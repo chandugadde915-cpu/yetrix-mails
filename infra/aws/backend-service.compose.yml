@@ -4,10 +4,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      CORS_ORIGIN: https://your-vercel-frontend-domain
-      MAILCOW_BASE_URL: https://mail.yetrixmails.com
+      CORS_ORIGIN: https://www.yetrixtechnologies.com
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: SET_FROM_SECRET_MANAGER
+      AUTH_SECRET: SET_FROM_SECRET_MANAGER
+      MAILCOW_BASE_URL: https://mail.yetrixtechnologies.com
       MAILCOW_API_KEY: SET_FROM_SECRET_MANAGER
       MAIL_DOMAIN: yetrixtechnologies.com
       MAIL_SERVER_IP: 56.228.11.175
+      MAILCOW_DKIM_SELECTOR: dkim
     ports:
       - "4000:4000"

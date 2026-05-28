@@ -1,6 +1,6 @@
 "use client";
 
-import { apiDelete, apiPost, apiPut } from "@/lib/api";
+import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { formatStorage, Mailbox, usagePercent } from "@/lib/dummy-data";
 import { KeyRound, Plus, Power, Save, Trash2 } from "lucide-react";
 import { FormEvent, useState, useTransition } from "react";
@@ -15,35 +15,55 @@ export function MailboxesClient({ initialMailboxes }: { initialMailboxes: Mailbo
 
   async function createMailbox(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await apiPost("/api/mailboxes", form);
-    setMessage("Mailbox created.");
-    setForm({ email: "", name: "", password: "", quotaMb: 2048 });
-    startTransition(() => router.refresh());
+    try {
+      await apiPost("/api/mailboxes", form);
+      setMessage("Mailbox created.");
+      setForm({ email: "", name: "", password: "", quotaMb: 2048 });
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create mailbox.");
+    }
   }
 
   async function updateQuota(email: string, quotaMb: number) {
-    await apiPut(`/api/mailboxes/${encodeURIComponent(email)}`, { quotaMb });
-    setMessage(`Quota updated for ${email}.`);
-    startTransition(() => router.refresh());
+    try {
+      await apiPut(`/api/mailboxes/${encodeURIComponent(email)}`, { quotaMb });
+      setMessage(`Quota updated for ${email}.`);
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not update ${email}.`);
+    }
   }
 
   async function resetPassword(email: string) {
     const password = window.prompt("New password, minimum 10 characters");
     if (!password) return;
-    await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/password`, { password });
-    setMessage(`Password reset for ${email}.`);
+    try {
+      await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/password`, { password });
+      setMessage(`Password reset for ${email}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not reset ${email}.`);
+    }
   }
 
   async function setActive(email: string, active: boolean) {
-    await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/${active ? "enable" : "disable"}`, {});
-    setMessage(`${email} ${active ? "enabled" : "disabled"}.`);
-    startTransition(() => router.refresh());
+    try {
+      await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/${active ? "enable" : "disable"}`, {});
+      setMessage(`${email} ${active ? "enabled" : "disabled"}.`);
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not update ${email}.`);
+    }
   }
 
   async function deleteMailbox(email: string) {
-    await apiDelete(`/api/mailboxes/${encodeURIComponent(email)}`);
-    setMailboxes((current) => current.filter((mailbox) => mailbox.address !== email));
-    setMessage(`${email} deleted.`);
+    try {
+      await apiDelete(`/api/mailboxes/${encodeURIComponent(email)}`);
+      setMailboxes((current) => current.filter((mailbox) => mailbox.address !== email));
+      setMessage(`${email} deleted.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not delete ${email}.`);
+    }
   }
 
   return (

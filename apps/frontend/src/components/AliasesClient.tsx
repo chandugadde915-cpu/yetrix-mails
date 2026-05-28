@@ -1,6 +1,6 @@
 "use client";
 
-import { apiDelete, apiPost } from "@/lib/api";
+import { apiDelete, apiPost } from "@/lib/client-api";
 import { Plus, Trash2 } from "lucide-react";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -21,16 +21,24 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
 
   async function createAlias(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await apiPost("/api/aliases", { ...form, active: true });
-    setMessage("Alias created.");
-    setForm({ address: "", goto: "" });
-    startTransition(() => router.refresh());
+    try {
+      await apiPost("/api/aliases", { ...form, active: true });
+      setMessage("Alias created.");
+      setForm({ address: "", goto: "" });
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not create alias.");
+    }
   }
 
   async function deleteAlias(id: string) {
-    await apiDelete(`/api/aliases/${encodeURIComponent(id)}`);
-    setAliases((current) => current.filter((alias) => alias.id !== id));
-    setMessage("Alias deleted.");
+    try {
+      await apiDelete(`/api/aliases/${encodeURIComponent(id)}`);
+      setAliases((current) => current.filter((alias) => alias.id !== id));
+      setMessage("Alias deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not delete alias.");
+    }
   }
 
   return (

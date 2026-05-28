@@ -1,20 +1,42 @@
 import { AppShell } from "@/components/AppShell";
-import { apiGet } from "@/lib/api";
-import { getDummyData } from "@/lib/dummy-data";
+import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const { settings, workspace } = getDummyData();
-  const health = await apiGet("/health", {
-    status: "offline",
-    service: "yetrix-api",
-    timestamp: null as string | null,
-  });
-  const status = await apiGet("/api/status", {
-    api: { healthy: false, timestamp: null as string | null },
-    mailcow: { connected: false, mailcowBaseUrl: workspace.mailHost, error: "Not connected" },
-  });
+  if (!(await requireAuthToken())) {
+    redirect("/login");
+  }
+
+  const health = await apiGet<{
+    status: string;
+    service: string;
+    timestamp: string;
+  }>("/health");
+  const status = await apiGet<{
+    api: { healthy: boolean; timestamp: string };
+    mailcow: { connected: boolean; mailcowBaseUrl: string; error?: string };
+  }>("/api/status");
+  const audit = await apiGet<Array<{ id: string; action: string; target: string; createdAt: string }>>(
+    "/api/audit",
+  );
+  const settings = {
+    security: [
+      { label: "Backend bearer-token authentication", enabled: true },
+      { label: "Mailcow API key backend-only", enabled: true },
+      { label: "Restricted CORS origin", enabled: true },
+      { label: "Audit log for mailbox/domain actions", enabled: true },
+    ],
+    admins: [{ name: "Admin", email: "admin@yetrixtechnologies.com", role: "Owner" }],
+  };
+  const workspace = {
+    name: "Yetrix Mails",
+    primaryDomain: "yetrixtechnologies.com",
+    region: "AWS eu-north-1",
+    apiUrl: "api.yetrixtechnologies.com",
+    mailHost: "mail.yetrixtechnologies.com",
+  };
 
   return (
     <AppShell>
@@ -75,7 +97,7 @@ export default async function SettingsPage() {
       <section className="panel section">
         <div className="title">
           <h1>Admins</h1>
-          <p>Workspace access shown from dummy JSON.</p>
+          <p>Configured backend admin access for the control panel.</p>
         </div>
         <table className="table">
           <thead>
@@ -99,23 +121,27 @@ export default async function SettingsPage() {
 
       <section className="panel section">
         <div className="title">
-          <h1>Service Endpoints</h1>
-          <p>Use these values when backend and mail services are connected.</p>
+          <h1>Audit Log</h1>
+          <p>Recent control-panel actions recorded by the backend.</p>
         </div>
-        <div className="records">
-          <div className="record">
-            <strong>API</strong>
-            <span className="mono">{workspace.apiUrl}</span>
-          </div>
-          <div className="record">
-            <strong>SMTP</strong>
-            <span className="mono">{workspace.mailHost}:587</span>
-          </div>
-          <div className="record">
-            <strong>IMAP</strong>
-            <span className="mono">{workspace.mailHost}:993</span>
-          </div>
-        </div>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Target</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {audit.map((event) => (
+              <tr key={event.id}>
+                <td>{event.action}</td>
+                <td>{event.target}</td>
+                <td>{event.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </AppShell>
   );

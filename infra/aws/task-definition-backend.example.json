@@ -21,11 +21,11 @@
         },
         {
           "name": "CORS_ORIGIN",
-          "value": "https://your-vercel-frontend-domain"
+          "value": "https://www.yetrixtechnologies.com"
         },
         {
           "name": "MAILCOW_BASE_URL",
-          "value": "https://mail.yetrixmails.com"
+          "value": "https://mail.yetrixtechnologies.com"
         },
         {
           "name": "MAIL_DOMAIN",
@@ -34,12 +34,28 @@
         {
           "name": "MAIL_SERVER_IP",
           "value": "56.228.11.175"
+        },
+        {
+          "name": "MAILCOW_DKIM_SELECTOR",
+          "value": "dkim"
         }
       ],
       "secrets": [
         {
           "name": "MAILCOW_API_KEY",
           "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:yetrix/mailcow-api-key"
+        },
+        {
+          "name": "ADMIN_USERNAME",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:yetrix/admin-username"
+        },
+        {
+          "name": "ADMIN_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:yetrix/admin-password"
+        },
+        {
+          "name": "AUTH_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:yetrix/auth-secret"
         }
       ],
       "logConfiguration": {

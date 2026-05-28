@@ -3,6 +3,7 @@
 ## Must-Have Before Real Customers
 
 - Replace the temporary `admin` / `admin` frontend demo login with real backend authentication.
+- Set strong `ADMIN_PASSWORD` and `AUTH_SECRET` values in backend environment variables.
 - Keep `MAILCOW_API_KEY` only in backend environment variables.
 - Never call the Mailcow API directly from the Vercel frontend.
 - Restrict CORS with `CORS_ORIGIN` to the deployed frontend domain only.

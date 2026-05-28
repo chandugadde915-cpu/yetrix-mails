@@ -6,9 +6,13 @@ services:
       NODE_ENV: production
       PORT: 4000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-      MAILCOW_BASE_URL: ${MAILCOW_BASE_URL:-https://mail.yetrixmails.com}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      AUTH_SECRET: ${AUTH_SECRET}
+      MAILCOW_BASE_URL: ${MAILCOW_BASE_URL:-https://mail.yetrixtechnologies.com}
       MAILCOW_API_KEY: ${MAILCOW_API_KEY}
       MAIL_DOMAIN: ${MAIL_DOMAIN:-yetrixtechnologies.com}
       MAIL_SERVER_IP: ${MAIL_SERVER_IP:-56.228.11.175}
+      MAILCOW_DKIM_SELECTOR: ${MAILCOW_DKIM_SELECTOR:-dkim}
     ports:
       - "4000:4000"

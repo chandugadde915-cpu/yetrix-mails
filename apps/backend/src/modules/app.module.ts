@@ -1,7 +1,9 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { AuthPlaceholderMiddleware } from "../common/auth-placeholder.middleware";
+import { AuthMiddleware } from "../common/auth.middleware";
 import { AliasesModule } from "./aliases/aliases.module";
+import { AuditModule } from "./audit/audit.module";
+import { AuthModule } from "./auth/auth.module";
 import { DnsModule } from "./dns/dns.module";
 import { DomainsModule } from "./domains/domains.module";
 import { HealthModule } from "./health/health.module";
@@ -12,6 +14,8 @@ import { StatusModule } from "./status/status.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
+    AuditModule,
     MailcowModule,
     HealthModule,
     DomainsModule,
@@ -23,6 +27,6 @@ import { StatusModule } from "./status/status.module";
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuthPlaceholderMiddleware).forRoutes("api/*");
+    consumer.apply(AuthMiddleware).forRoutes("api/*");
   }
 }

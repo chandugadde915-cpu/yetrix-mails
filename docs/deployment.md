@@ -29,12 +29,16 @@ Internal port: 4000
 Environment:
 
 ```text
-MAILCOW_BASE_URL=https://mail.yetrixmails.com
+MAILCOW_BASE_URL=https://mail.yetrixtechnologies.com
 MAILCOW_API_KEY=your_mailcow_api_key
 MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
+MAILCOW_DKIM_SELECTOR=dkim
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=replace_with_a_strong_password
+AUTH_SECRET=replace_with_a_long_random_secret
 PORT=4000
-CORS_ORIGIN=https://your-vercel-frontend-domain
+CORS_ORIGIN=https://www.yetrixtechnologies.com
 ```
 
 Docker:
@@ -61,7 +65,7 @@ curl https://api.yetrixtechnologies.com/api/status
 Mailcow server:
 
 ```text
-https://mail.yetrixmails.com
+https://mail.yetrixtechnologies.com
 ```
 
 Mail server IP:

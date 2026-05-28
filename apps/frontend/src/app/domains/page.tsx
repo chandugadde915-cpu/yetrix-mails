@@ -1,13 +1,18 @@
 import { AppShell } from "@/components/AppShell";
 import { DomainsClient } from "@/components/DomainsClient";
-import { apiGet } from "@/lib/api";
-import { getDummyData } from "@/lib/dummy-data";
+import { Domain } from "@/lib/dummy-data";
+import { apiGet, requireAuthToken } from "@/lib/server-api";
 import { RefreshCw } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DomainsPage() {
-  const domains = await apiGet("/api/domains", getDummyData().domains);
+  if (!(await requireAuthToken())) {
+    redirect("/login");
+  }
+
+  const domains = await apiGet<Domain[]>("/api/domains");
 
   return (
     <AppShell>

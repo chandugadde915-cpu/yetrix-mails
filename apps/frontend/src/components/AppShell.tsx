@@ -1,8 +1,8 @@
 "use client";
 
-import { AtSign, CreditCard, Globe2, Inbox, LayoutDashboard, Mail, Settings } from "lucide-react";
+import { AtSign, CreditCard, Globe2, Inbox, LayoutDashboard, LogOut, Mail, Settings } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -16,6 +16,13 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <div className="shell">
@@ -33,6 +40,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        <button className="logout-button" onClick={logout}>
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
       </aside>
       <main className="main">{children}</main>
     </div>

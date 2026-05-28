@@ -1,21 +1,39 @@
 import { AppShell } from "@/components/AppShell";
-import { apiGet } from "@/lib/api";
-import { getDummyData } from "@/lib/dummy-data";
+import { apiGet, requireAuthToken } from "@/lib/server-api";
+import { Domain, Mailbox } from "@/lib/dummy-data";
 import { Activity, Database, Globe2, Inbox, Plus, RefreshCw, Send } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const fallback = getDummyData();
-  const domains = await apiGet("/api/domains", fallback.domains);
-  const mailboxes = await apiGet("/api/mailboxes", fallback.mailboxes);
+  if (!(await requireAuthToken())) {
+    redirect("/login");
+  }
+
+  const domains = await apiGet<Domain[]>("/api/domains");
+  const mailboxes = await apiGet<Mailbox[]>("/api/mailboxes");
+  const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const metrics = {
-    ...fallback.metrics,
     totalDomains: domains.length,
     verifiedDomains: domains.filter((domain) => domain.status === "active").length,
-    activeMailboxes: mailboxes.filter((mailbox) => mailbox.status === "active").length,
+    activeMailboxes,
+    inactiveMailboxes: mailboxes.length - activeMailboxes,
+    outboundQueue: 0,
+    deliveryRate: "Live",
+    storageUsedGb: Math.round(
+      mailboxes.reduce((total, mailbox) => total + (mailbox.usedMb ?? 0), 0) / 1024,
+    ),
+    storageLimitGb: Math.round(
+      mailboxes.reduce((total, mailbox) => total + (mailbox.quotaMb ?? 0), 0) / 1024,
+    ),
   };
-  const workspace = fallback.workspace;
+  const workspace = {
+    region: "AWS eu-north-1",
+    frontendUrl: "www.yetrixtechnologies.com",
+    apiUrl: "api.yetrixtechnologies.com",
+    mailHost: "mail.yetrixtechnologies.com",
+  };
 
   return (
     <AppShell>
@@ -50,9 +68,9 @@ export default async function DashboardPage() {
         <div className="panel">
           <div className="metric-row">
             <Send size={20} />
-            <div className="metric">Outbound queue</div>
+              <div className="metric">Inactive mailboxes</div>
           </div>
-          <div className="value">{metrics.outboundQueue}</div>
+          <div className="value">{metrics.inactiveMailboxes}</div>
         </div>
         <div className="panel">
           <div className="metric-row">
@@ -137,7 +155,7 @@ export default async function DashboardPage() {
       <section className="panel section">
         <div className="title">
           <h1>Recent Mailboxes</h1>
-          <p>Sample workspace users loaded from dummy JSON.</p>
+          <p>Recent Mailcow mailboxes from the backend API.</p>
         </div>
         <table className="table">
           <thead>
@@ -158,7 +176,7 @@ export default async function DashboardPage() {
                     {mailbox.status}
                   </span>
                 </td>
-                <td>{mailbox.lastLogin}</td>
+                <td>{String(mailbox.lastLogin ?? "Not available")}</td>
               </tr>
             ))}
           </tbody>
