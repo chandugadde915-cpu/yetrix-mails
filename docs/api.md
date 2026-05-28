@@ -43,6 +43,7 @@ POST /auth/signup
 
 ```text
 GET    /api/workspace
+GET    /api/workspaces
 PUT    /api/workspace
 POST   /api/workspace/sync
 POST   /api/me/password
@@ -52,7 +53,9 @@ PUT    /api/users/:id
 DELETE /api/users/:id
 ```
 
-`POST /api/workspace/sync` pulls domains, mailboxes, and aliases from Mailcow and records the visible tenant-owned objects in the Yetrix workspace database.
+`GET /api/workspaces` is superadmin-only and returns every workspace with domain, mailbox, alias,
+and user counts. `POST /api/workspace/sync` pulls domains, mailboxes, and aliases from Mailcow and
+records the visible tenant-owned objects in the Yetrix workspace database.
 
 ## Domains
 

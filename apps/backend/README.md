@@ -28,6 +28,7 @@ POST   /auth/signup
 GET    /api/status
 GET    /api/audit
 GET    /api/workspace
+GET    /api/workspaces
 PUT    /api/workspace
 GET    /api/users
 POST   /api/users

@@ -42,6 +42,7 @@ Pages:
 /aliases
 /webmail
 /operations
+/superadmin
 /billing
 /settings
 ```

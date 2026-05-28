@@ -9,6 +9,13 @@ export interface WorkspaceRow {
   created_at: string;
 }
 
+export interface WorkspaceInventoryRow extends WorkspaceRow {
+  domains: string;
+  mailboxes: string;
+  aliases: string;
+  users: string;
+}
+
 export interface UserRow {
   id: string;
   workspace_id?: string;
@@ -112,6 +119,40 @@ export class WorkspacesService {
       [id, name.trim()],
     );
     return result.rows[0];
+  }
+
+  async listWorkspaces() {
+    if (!this.database.enabled) {
+      return [];
+    }
+
+    const result = await this.database.query<WorkspaceInventoryRow>(
+      `
+        SELECT w.id,
+               w.name,
+               w.status,
+               w.created_at,
+               (SELECT count(*) FROM domains d WHERE d.workspace_id = w.id) AS domains,
+               (SELECT count(*) FROM mailboxes m WHERE m.workspace_id = w.id) AS mailboxes,
+               (SELECT count(*) FROM aliases a WHERE a.workspace_id = w.id) AS aliases,
+               (SELECT count(*) FROM users u WHERE u.workspace_id = w.id) AS users
+        FROM workspaces w
+        ORDER BY w.created_at DESC
+      `,
+    );
+
+    return result.rows.map((workspace) => ({
+      id: workspace.id,
+      name: workspace.name,
+      status: workspace.status,
+      created_at: workspace.created_at,
+      counts: {
+        domains: Number(workspace.domains ?? 0),
+        mailboxes: Number(workspace.mailboxes ?? 0),
+        aliases: Number(workspace.aliases ?? 0),
+        users: Number(workspace.users ?? 0),
+      },
+    }));
   }
 
   async listUsers(workspaceId?: string, includeAll = false) {

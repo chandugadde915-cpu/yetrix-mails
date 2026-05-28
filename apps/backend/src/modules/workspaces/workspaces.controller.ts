@@ -24,6 +24,12 @@ export class WorkspacesController {
     return this.workspaces.getWorkspace(req.user?.workspaceId, isSuperAdmin(req));
   }
 
+  @Get("workspaces")
+  listWorkspaces(@Req() req: AuthenticatedRequest) {
+    requireRole(req, ["superadmin"]);
+    return this.workspaces.listWorkspaces();
+  }
+
   @Put("workspace")
   updateWorkspace(@Req() req: AuthenticatedRequest, @Body() body: UpdateWorkspaceDto) {
     requireRole(req, adminRoles);

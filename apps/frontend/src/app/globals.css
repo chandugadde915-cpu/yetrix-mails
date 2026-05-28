@@ -1391,6 +1391,216 @@ textarea {
   line-height: 1.7;
 }
 
+.launch-console {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(15, 118, 110, 0.15), transparent 36%),
+    linear-gradient(255deg, rgba(245, 158, 11, 0.12), transparent 34%),
+    #ffffff;
+}
+
+.launch-console-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.launch-console h2,
+.superadmin-hero h2 {
+  max-width: 760px;
+  margin: 12px 0 8px;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.launch-console p,
+.superadmin-hero p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.launch-console-body {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.launch-ring {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 170px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at center, #ffffff 0 42%, transparent 43%),
+    conic-gradient(var(--accent), #f59e0b, #2563eb, var(--accent));
+}
+
+.launch-ring strong {
+  font-size: 38px;
+}
+
+.launch-ring span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.launch-checklist {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.launch-check {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 22px;
+  gap: 10px;
+  min-height: 142px;
+  padding: 12px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.launch-check.complete {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.launch-check-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.launch-check.complete .launch-check-icon {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.launch-check strong,
+.launch-check small {
+  display: block;
+}
+
+.launch-check small {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.superadmin-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.55fr);
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background:
+    linear-gradient(120deg, rgba(15, 118, 110, 0.14), transparent 36%),
+    linear-gradient(250deg, rgba(37, 99, 235, 0.11), transparent 34%),
+    #ffffff;
+}
+
+.superadmin-signal {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+
+.superadmin-signal div,
+.mail-inventory div {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.superadmin-signal span,
+.mail-inventory span,
+.mail-inventory small {
+  color: var(--muted);
+}
+
+.superadmin-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.65fr);
+  gap: 16px;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.admin-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.admin-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-row strong,
+.admin-row small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.admin-row small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.mail-inventory {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.mail-inventory svg {
+  color: var(--accent);
+}
+
+.mail-inventory strong {
+  font-size: 28px;
+}
+
 .operations-hero {
   position: relative;
   display: grid;
@@ -2287,6 +2497,10 @@ textarea {
   .alias-command,
   .mail-console-hero,
   .launch-hero,
+  .launch-console-body,
+  .launch-checklist,
+  .superadmin-hero,
+  .superadmin-layout,
   .flow-grid,
   .flow-detail-grid,
   .settings-grid,
@@ -2381,6 +2595,7 @@ textarea {
   }
 
   .split-row,
+  .launch-console-head,
   .domain-card-head,
   .record-line,
   .message-head {

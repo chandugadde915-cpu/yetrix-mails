@@ -1,6 +1,7 @@
 import {
   AtSign,
   CreditCard,
+  Crown,
   Globe2,
   Inbox,
   LayoutDashboard,
@@ -43,6 +44,7 @@ export const navSections: NavSection[] = [
   {
     title: "Business",
     items: [
+      { href: "/superadmin", label: "Superadmin", icon: Crown },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
     ],

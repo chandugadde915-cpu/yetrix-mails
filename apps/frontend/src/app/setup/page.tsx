@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/AppShell";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusNotice } from "@/components/StatusNotice";
 import { WorkspaceFlow } from "@/components/WorkspaceFlow";
@@ -21,6 +22,7 @@ export default async function SetupPage() {
       />
       <StatusNotice errors={errors} message="Some setup data is temporarily unavailable." />
       <WorkspaceSyncButton />
+      <OnboardingChecklist domains={domains} mailboxes={mailboxes} status={status} />
       <WorkspaceFlow domains={domains} mailboxes={mailboxes} status={status} />
     </AppShell>
   );
