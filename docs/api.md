@@ -3,63 +3,98 @@
 Base URL:
 
 ```text
-https://api.yourmailplatform.com
+https://api.yetrixtechnologies.com
+```
+
+## Response Shape
+
+```json
+{ "success": true, "data": {} }
+```
+
+```json
+{ "success": false, "error": "message" }
 ```
 
 ## Health
 
 ```text
 GET /health
+GET /api/status
 ```
+
+`/api/status` includes backend health and Mailcow connection status.
 
 ## Domains
 
 ```text
-GET /domains
-POST /domains
-GET /domains/:domain/dns-records
+GET    /api/domains
+POST   /api/domains
+DELETE /api/domains/:domain
 ```
 
-Create domain body:
+Create body:
 
 ```json
 {
-  "domain": "company.com"
-}
-```
-
-## DNS Checks
-
-```text
-GET /dns/:domain/check
-```
-
-Returns:
-
-```json
-{
-  "domain": "company.com",
-  "checks": {
-    "mx": true,
-    "spf": true,
-    "dkim": false,
-    "dmarc": false
-  }
+  "domain": "yetrixtechnologies.com",
+  "description": "Primary mail domain"
 }
 ```
 
 ## Mailboxes
 
 ```text
-GET /mailboxes
-POST /mailboxes
+GET    /api/mailboxes
+POST   /api/mailboxes
+PUT    /api/mailboxes/:email
+DELETE /api/mailboxes/:email
+POST   /api/mailboxes/:email/password
+POST   /api/mailboxes/:email/disable
+POST   /api/mailboxes/:email/enable
 ```
 
-Create mailbox body:
+Create body:
 
 ```json
 {
-  "address": "info@company.com",
+  "email": "admin@yetrixtechnologies.com",
+  "name": "Admin",
+  "password": "StrongPassword123!",
   "quotaMb": 2048
+}
+```
+
+Update body:
+
+```json
+{
+  "quotaMb": 4096,
+  "active": true
+}
+```
+
+Password body:
+
+```json
+{
+  "password": "NewStrongPassword123!"
+}
+```
+
+## Aliases
+
+```text
+GET    /api/aliases
+POST   /api/aliases
+DELETE /api/aliases/:id
+```
+
+Create body:
+
+```json
+{
+  "address": "support@yetrixtechnologies.com",
+  "goto": "admin@yetrixtechnologies.com"
 }
 ```

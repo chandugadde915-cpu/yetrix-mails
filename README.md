@@ -1,87 +1,85 @@
-# OwnMail Platform Starter
+# Yetrix Mails Control Panel
 
-Starter architecture for a custom-domain email hosting SaaS with:
+SaaS mail control panel with:
 
 - Frontend on Vercel
-- Backend API and workers on AWS
-- Mail infrastructure on AWS
-- PostgreSQL-backed virtual domains and mailboxes
-- Postfix, Dovecot, OpenDKIM, Rspamd, Redis, and Roundcube
+- Backend API at `https://api.yetrixtechnologies.com`
+- Mailcow as the backend mail engine at `https://mail.yetrixmails.com`
+- Clean frontend REST API calls through the backend only
+
+Mailcow API keys are never exposed to the browser. The frontend talks only to the backend; the backend talks to Mailcow with `MAILCOW_API_KEY` from server environment variables.
 
 ## Repository Layout
 
 ```text
 apps/
   frontend/       Next.js dashboard for Vercel
-  backend/        NestJS-style API for AWS
-infra/
-  aws/            AWS architecture notes and deploy plan
-  mail/           Local mail-stack compose/config starter
+  backend/        NestJS API proxy/control layer for Mailcow
 docs/
-  architecture.md Full production architecture
+  api.md          Backend API contract
+  deployment.md   Vercel, Docker, and Mailcow setup
 ```
 
-## MVP Scope
+## Frontend Flow
 
-The first production target is custom-domain email hosting:
+```text
+Vercel UI
+  -> https://api.yetrixtechnologies.com
+  -> Mailcow API
+  -> https://mail.yetrixmails.com
+```
 
-1. User signs up.
-2. User adds a domain.
-3. App shows MX, SPF, DKIM, and DMARC records.
-4. DNS checker verifies the records.
-5. User creates mailboxes.
-6. Postfix and Dovecot authenticate mailboxes from PostgreSQL.
-7. User logs into Roundcube webmail.
+Pages:
 
-## Demo Login
+```text
+/
+/login
+/dashboard
+/domains
+/mailboxes
+/aliases
+/settings
+```
 
-The current frontend includes a temporary demo login:
+Temporary demo login:
 
 ```text
 username: admin
 password: admin
 ```
 
-Replace this with real backend authentication before using the platform with real users.
+Replace this with real backend authentication before real users.
 
-## Frontend Demo Data
-
-Until the backend is connected, the admin dashboard uses local dummy JSON from:
+## Backend Environment
 
 ```text
-apps/frontend/src/data/dummy.json
+MAILCOW_BASE_URL=https://mail.yetrixmails.com
+MAILCOW_API_KEY=your_mailcow_api_key
+MAIL_DOMAIN=yetrixtechnologies.com
+MAIL_SERVER_IP=56.228.11.175
+PORT=4000
+CORS_ORIGIN=https://your-vercel-frontend-domain
 ```
 
-Update that file to change the demo domains, mailboxes, billing data, settings, and webmail preview.
+## Vercel Environment
 
-## Local Development
-
-Frontend:
-
-```bash
-cd apps/frontend
-npm install
-npm run dev
+```text
+NEXT_PUBLIC_API_URL=https://api.yetrixtechnologies.com
 ```
 
-Backend:
+## Docker Backend
 
 ```bash
-cd apps/backend
-npm install
-npm run start:dev
+docker compose up -d --build backend
 ```
 
-Mail stack:
+The backend listens on port `4000`. Your existing Nginx reverse proxy should map:
 
-```bash
-cd infra/mail
-docker compose up -d
+```text
+https://api.yetrixtechnologies.com -> http://localhost:4000
 ```
 
 ## Verified Locally
-
-The scaffold has been checked with:
 
 ```bash
 npm --workspace apps/frontend run typecheck
@@ -90,23 +88,8 @@ npm --workspace apps/frontend run build
 npm --workspace apps/backend run build
 ```
 
-## Production Domains
+## Notes
 
-```text
-app.yourmailplatform.com      Vercel frontend
-api.yourmailplatform.com      AWS backend API
-mail.yourmailplatform.com     AWS SMTP/IMAP mail node
-webmail.yourmailplatform.com  Roundcube webmail
-```
-
-## Important
-
-Do not send real customer email from a new AWS IP immediately. Start with test domains, configure SPF/DKIM/DMARC correctly, monitor blacklists, and warm IP reputation gradually.
-
-## Production Readiness Docs
-
-- [Architecture](docs/architecture.md)
-- [Deployment](docs/deployment.md)
-- [Security](docs/security.md)
-- [API](docs/api.md)
-- [GitHub publishing](docs/github.md)
+- Mailcow admin UI should remain admin-only.
+- Frontend must never call Mailcow directly.
+- DNS status in the UI is a placeholder until live DNS verification is added.

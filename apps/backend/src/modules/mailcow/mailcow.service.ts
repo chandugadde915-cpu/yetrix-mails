@@ -1,0 +1,333 @@
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+
+type MailcowMethod = "GET" | "POST";
+type MailcowResponse = Array<{ type?: string; msg?: unknown; log?: unknown }> | unknown;
+
+export interface DomainRecord {
+  type: "MX" | "SPF" | "DKIM" | "DMARC";
+  name: string;
+  value: string;
+  status: "placeholder";
+}
+
+@Injectable()
+export class MailcowService {
+  private readonly baseUrl?: string;
+  private readonly apiKey?: string;
+  private readonly mailDomain: string;
+  private readonly mailServerIp: string;
+
+  constructor(config: ConfigService) {
+    this.baseUrl = config.get<string>("MAILCOW_BASE_URL")?.replace(/\/$/, "");
+    this.apiKey = config.get<string>("MAILCOW_API_KEY");
+    this.mailDomain = config.get<string>("MAIL_DOMAIN", "yetrixtechnologies.com");
+    this.mailServerIp = config.get<string>("MAIL_SERVER_IP", "56.228.11.175");
+  }
+
+  async connectionStatus() {
+    if (!this.baseUrl || !this.apiKey) {
+      return {
+        connected: false,
+        mailcowBaseUrl: this.baseUrl ?? null,
+        error: "MAILCOW_BASE_URL or MAILCOW_API_KEY is missing",
+      };
+    }
+
+    try {
+      await this.request("GET", "/get/domain/all");
+      return {
+        connected: true,
+        mailcowBaseUrl: this.baseUrl,
+      };
+    } catch (error) {
+      return {
+        connected: false,
+        mailcowBaseUrl: this.baseUrl,
+        error: error instanceof Error ? error.message : "Mailcow connection failed",
+      };
+    }
+  }
+
+  async listDomains() {
+    const rows = await this.request<Array<Record<string, unknown>>>("GET", "/get/domain/all");
+    return rows.map((row) => this.normalizeDomain(row));
+  }
+
+  async addDomain(input: { domain: string; description?: string }) {
+    const domain = input.domain.trim().toLowerCase();
+    const response = await this.request("POST", "/add/domain", {
+      domain,
+      description: input.description ?? "",
+      aliases: 400,
+      mailboxes: 100,
+      defquota: 3072,
+      maxquota: 10240,
+      quota: 102400,
+      active: "1",
+      backupmx: "0",
+      relay_all_recipients: "0",
+      restart_sogo: "1",
+      rl_frame: "s",
+      rl_value: 10,
+    });
+    this.assertMailcowSuccess(response);
+    return { domain, result: response };
+  }
+
+  async deleteDomain(domain: string) {
+    const response = await this.request("POST", "/delete/domain", [domain]);
+    this.assertMailcowSuccess(response);
+    return { domain, result: response };
+  }
+
+  async listMailboxes() {
+    const rows = await this.request<Array<Record<string, unknown>>>("GET", "/get/mailbox/all");
+    return rows.map((row) => this.normalizeMailbox(row));
+  }
+
+  async addMailbox(input: {
+    email: string;
+    name?: string;
+    password: string;
+    quotaMb?: number;
+    active?: boolean;
+  }) {
+    const { localPart, domain } = this.splitEmail(input.email);
+    const response = await this.request("POST", "/add/mailbox", {
+      local_part: localPart,
+      domain,
+      name: input.name ?? localPart,
+      quota: input.quotaMb ?? 2048,
+      password: input.password,
+      password2: input.password,
+      active: input.active === false ? "0" : "1",
+      force_pw_update: "0",
+      tls_enforce_in: "1",
+      tls_enforce_out: "1",
+    });
+    this.assertMailcowSuccess(response);
+    return { email: input.email.toLowerCase(), result: response };
+  }
+
+  async editMailbox(email: string, input: { name?: string; quotaMb?: number; active?: boolean }) {
+    const attr: Record<string, string | number> = {};
+    if (input.name !== undefined) attr.name = input.name;
+    if (input.quotaMb !== undefined) attr.quota = input.quotaMb;
+    if (input.active !== undefined) attr.active = input.active ? "1" : "0";
+
+    if (Object.keys(attr).length === 0) {
+      throw new BadRequestException("At least one mailbox field must be provided");
+    }
+
+    const response = await this.request("POST", "/edit/mailbox", {
+      items: [email],
+      attr,
+    });
+    this.assertMailcowSuccess(response);
+    return { email, result: response };
+  }
+
+  async resetMailboxPassword(email: string, password: string) {
+    const response = await this.request("POST", "/edit/mailbox", {
+      items: [email],
+      attr: {
+        password,
+        password2: password,
+      },
+    });
+    this.assertMailcowSuccess(response);
+    return { email, result: response };
+  }
+
+  async setMailboxActive(email: string, active: boolean) {
+    return this.editMailbox(email, { active });
+  }
+
+  async deleteMailbox(email: string) {
+    const response = await this.request("POST", "/delete/mailbox", [email]);
+    this.assertMailcowSuccess(response);
+    return { email, result: response };
+  }
+
+  async listAliases() {
+    const rows = await this.request<Array<Record<string, unknown>>>("GET", "/get/alias/all");
+    return rows.map((row) => this.normalizeAlias(row));
+  }
+
+  async addAlias(input: { address: string; goto: string; active?: boolean }) {
+    const response = await this.request("POST", "/add/alias", {
+      address: input.address.toLowerCase(),
+      goto: input.goto.toLowerCase(),
+      active: input.active === false ? "0" : "1",
+      sogo_visible: true,
+    });
+    this.assertMailcowSuccess(response);
+    return { address: input.address.toLowerCase(), result: response };
+  }
+
+  async deleteAlias(id: string) {
+    const response = await this.request("POST", "/delete/alias", [id]);
+    this.assertMailcowSuccess(response);
+    return { id, result: response };
+  }
+
+  dnsPlaceholders(domain: string): DomainRecord[] {
+    return [
+      {
+        type: "MX",
+        name: domain,
+        value: `10 mail.${this.mailDomain}`,
+        status: "placeholder",
+      },
+      {
+        type: "SPF",
+        name: domain,
+        value: `v=spf1 mx ip4:${this.mailServerIp} ~all`,
+        status: "placeholder",
+      },
+      {
+        type: "DKIM",
+        name: `dkim._domainkey.${domain}`,
+        value: "Generated by Mailcow after DKIM key creation",
+        status: "placeholder",
+      },
+      {
+        type: "DMARC",
+        name: `_dmarc.${domain}`,
+        value: `v=DMARC1; p=quarantine; rua=mailto:dmarc@${this.mailDomain}`,
+        status: "placeholder",
+      },
+    ];
+  }
+
+  private async request<T = MailcowResponse>(
+    method: MailcowMethod,
+    path: string,
+    body?: unknown,
+  ): Promise<T> {
+    if (!this.baseUrl || !this.apiKey) {
+      throw new ServiceUnavailableException("Mailcow API environment is not configured");
+    }
+
+    const response = await fetch(`${this.baseUrl}/api/v1${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": this.apiKey,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    const text = await response.text();
+    const parsed = text ? this.parseJson(text) : null;
+
+    if (!response.ok) {
+      throw new BadGatewayException(
+        `Mailcow API ${response.status}: ${this.mailcowMessage(parsed)}`,
+      );
+    }
+
+    return parsed as T;
+  }
+
+  private parseJson(text: string) {
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return text;
+    }
+  }
+
+  private assertMailcowSuccess(response: unknown) {
+    if (!Array.isArray(response)) return;
+
+    const failure = response.find((item) => {
+      if (!item || typeof item !== "object") return false;
+      const type = "type" in item ? String(item.type) : "";
+      return type === "danger" || type === "error";
+    });
+
+    if (failure) {
+      throw new BadGatewayException(this.mailcowMessage(failure));
+    }
+  }
+
+  private mailcowMessage(value: unknown): string {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value.map((item) => this.mailcowMessage(item)).join("; ");
+    if (value && typeof value === "object") {
+      const object = value as Record<string, unknown>;
+      if (object.msg) return this.mailcowMessage(object.msg);
+      return JSON.stringify(object);
+    }
+    return "Unexpected Mailcow response";
+  }
+
+  private splitEmail(email: string) {
+    const normalized = email.trim().toLowerCase();
+    const [localPart, domain] = normalized.split("@");
+    if (!localPart || !domain) {
+      throw new BadRequestException("A valid email address is required");
+    }
+    return { localPart, domain };
+  }
+
+  private normalizeDomain(row: Record<string, unknown>) {
+    const domain = String(row.domain ?? row.domain_name ?? "");
+    const active = String(row.active ?? "0") === "1";
+    return {
+      domain,
+      status: active ? "active" : "inactive",
+      active,
+      mailboxes: Number(row.mboxes_in_domain ?? row.mailboxes ?? row.mbox_count ?? 0),
+      aliases: Number(row.aliases_in_domain ?? row.aliases ?? 0),
+      quotaMb: this.toMb(row.quota),
+      maxQuotaMb: this.toMb(row.maxquota),
+      createdAt: row.created ?? row.created_at ?? null,
+      records: this.dnsPlaceholders(domain),
+      raw: row,
+    };
+  }
+
+  private normalizeMailbox(row: Record<string, unknown>) {
+    const address = String(row.username ?? row.email ?? "");
+    return {
+      address,
+      name: String(row.name ?? address.split("@")[0] ?? ""),
+      domain: String(row.domain ?? address.split("@")[1] ?? ""),
+      quotaMb: this.toMb(row.quota),
+      usedMb: this.toMb(row.quota_used),
+      status: String(row.active ?? "0") === "1" ? "active" : "disabled",
+      active: String(row.active ?? "0") === "1",
+      messages: Number(row.messages ?? 0),
+      percentInUse: Number(row.percent_in_use ?? 0),
+      lastLogin: row.last_imap_login ?? row.last_smtp_login ?? null,
+      aliases: [],
+      raw: row,
+    };
+  }
+
+  private normalizeAlias(row: Record<string, unknown>) {
+    return {
+      id: String(row.id ?? row.address ?? ""),
+      address: String(row.address ?? ""),
+      goto: String(row.goto ?? ""),
+      status: String(row.active ?? "0") === "1" ? "active" : "disabled",
+      active: String(row.active ?? "0") === "1",
+      createdAt: row.created ?? null,
+      raw: row,
+    };
+  }
+
+  private toMb(value: unknown) {
+    const numeric = Number(value ?? 0);
+    if (!Number.isFinite(numeric)) return 0;
+    return numeric > 1024 * 1024 ? Math.round(numeric / 1024 / 1024) : numeric;
+  }
+}

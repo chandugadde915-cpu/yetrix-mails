@@ -1,23 +1,28 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
+import { MailcowService } from "../mailcow/mailcow.service";
 import { CreateDomainDto } from "./dto/create-domain.dto";
-import { DomainsService } from "./domains.service";
 
-@Controller("domains")
+@Controller("api/domains")
 export class DomainsController {
-  constructor(private readonly domainsService: DomainsService) {}
+  constructor(private readonly mailcow: MailcowService) {}
 
   @Get()
   listDomains() {
-    return this.domainsService.listDomains();
+    return this.mailcow.listDomains();
   }
 
   @Post()
   createDomain(@Body() body: CreateDomainDto) {
-    return this.domainsService.createDomain(body.domain);
+    return this.mailcow.addDomain(body);
   }
 
   @Get(":domain/dns-records")
   getDnsRecords(@Param("domain") domain: string) {
-    return this.domainsService.requiredDnsRecords(domain);
+    return this.mailcow.dnsPlaceholders(domain);
+  }
+
+  @Delete(":domain")
+  deleteDomain(@Param("domain") domain: string) {
+    return this.mailcow.deleteDomain(domain);
   }
 }

@@ -1,6 +1,6 @@
 # Deployment Guide
 
-## 1. Frontend on Vercel
+## Frontend on Vercel
 
 Project root:
 
@@ -8,99 +8,72 @@ Project root:
 apps/frontend
 ```
 
-Environment variable:
+Environment:
 
 ```text
-NEXT_PUBLIC_API_URL=https://api.yourmailplatform.com
+NEXT_PUBLIC_API_URL=https://api.yetrixtechnologies.com
 ```
 
-Production domain:
+The frontend calls only your backend API. It never calls Mailcow directly.
+
+## Backend on EC2
+
+The backend runs on your API server:
 
 ```text
-app.yourmailplatform.com
+API server: https://api.yetrixtechnologies.com
+API server IP: 13.53.106.142
+Internal port: 4000
 ```
 
-Recommended setup:
-
-1. Import the repository into Vercel.
-2. Set the root directory to `apps/frontend`.
-3. Add `NEXT_PUBLIC_API_URL`.
-4. Point `app.yourmailplatform.com` to Vercel.
-
-## 2. Backend on AWS
-
-Recommended MVP:
+Environment:
 
 ```text
-ECS Fargate service behind an Application Load Balancer
-```
-
-Environment variables:
-
-```text
-NODE_ENV=production
+MAILCOW_BASE_URL=https://mail.yetrixmails.com
+MAILCOW_API_KEY=your_mailcow_api_key
+MAIL_DOMAIN=yetrixtechnologies.com
+MAIL_SERVER_IP=56.228.11.175
 PORT=4000
-APP_BASE_URL=https://app.yourmailplatform.com
-DATABASE_URL=postgres://...
-REDIS_URL=redis://...
-MAIL_HOSTNAME=mail.yourmailplatform.com
-WEBMAIL_URL=https://webmail.yourmailplatform.com
-DKIM_SELECTOR=default
+CORS_ORIGIN=https://your-vercel-frontend-domain
 ```
 
-Production domain:
+Docker:
+
+```bash
+docker compose up -d --build backend
+```
+
+Nginx should already map:
 
 ```text
-api.yourmailplatform.com
+https://api.yetrixtechnologies.com -> http://localhost:4000
 ```
 
-## 3. Mail Node on AWS EC2
+Test:
 
-Use a dedicated EC2 instance first.
+```bash
+curl https://api.yetrixtechnologies.com/health
+curl https://api.yetrixtechnologies.com/api/status
+```
 
-Recommended minimum:
+## Mailcow
+
+Mailcow server:
 
 ```text
-t3.medium or t3.large
-100 GB gp3 EBS
-Elastic IP
-Ubuntu LTS
+https://mail.yetrixmails.com
 ```
 
-Install:
+Mail server IP:
 
 ```text
-Postfix
-Dovecot
-Rspamd
-OpenDKIM
-Nginx
-Roundcube
-Certbot
+56.228.11.175
 ```
 
-Mailbox storage:
+Create a Mailcow API key in the Mailcow admin UI and store it only in the backend environment as:
 
 ```text
-/var/mail/vhosts/domain.com/user/
+MAILCOW_API_KEY
 ```
 
-## 4. Platform DNS
-
-```text
-app.yourmailplatform.com       Vercel
-api.yourmailplatform.com       AWS ALB
-mail.yourmailplatform.com      AWS Elastic IP
-webmail.yourmailplatform.com   AWS Elastic IP or ALB
-```
-
-## 5. Email Reputation Checklist
-
-- Request AWS port 25 removal.
-- Configure reverse DNS for the Elastic IP.
-- Set SPF for the platform domain.
-- Sign outgoing email with DKIM.
-- Publish DMARC for the platform domain.
-- Start with low outbound limits.
-- Track bounces and complaints.
-- Monitor blacklists.
+Keep the Mailcow admin UI internal/admin-only.

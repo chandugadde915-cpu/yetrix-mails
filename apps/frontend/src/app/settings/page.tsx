@@ -1,8 +1,20 @@
 import { AppShell } from "@/components/AppShell";
+import { apiGet } from "@/lib/api";
 import { getDummyData } from "@/lib/dummy-data";
 
-export default function SettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
   const { settings, workspace } = getDummyData();
+  const health = await apiGet("/health", {
+    status: "offline",
+    service: "yetrix-api",
+    timestamp: null as string | null,
+  });
+  const status = await apiGet("/api/status", {
+    api: { healthy: false, timestamp: null as string | null },
+    mailcow: { connected: false, mailcowBaseUrl: workspace.mailHost, error: "Not connected" },
+  });
 
   return (
     <AppShell>
@@ -11,6 +23,24 @@ export default function SettingsPage() {
         <p>Workspace identity, security defaults, and admin controls.</p>
       </div>
       <section className="settings-grid section">
+        <div className="panel">
+          <h2>API Status</h2>
+          <div className="endpoint-list">
+            <div>
+              <span>Backend API</span>
+              <strong>{health.status === "ok" ? "Online" : "Offline"}</strong>
+            </div>
+            <div>
+              <span>Mailcow</span>
+              <strong>{status.mailcow.connected ? "Connected" : "Disconnected"}</strong>
+            </div>
+            <div>
+              <span>Mailcow URL</span>
+              <strong>{status.mailcow.mailcowBaseUrl}</strong>
+            </div>
+          </div>
+        </div>
+
         <div className="panel">
           <h2>Workspace</h2>
           <div className="endpoint-list">

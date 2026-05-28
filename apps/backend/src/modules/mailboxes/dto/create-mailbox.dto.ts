@@ -1,12 +1,24 @@
-import { IsEmail, IsInt, IsOptional, Max, Min } from "class-validator";
+import { IsBoolean, IsEmail, IsInt, IsOptional, IsString, Max, Min, MinLength } from "class-validator";
 
 export class CreateMailboxDto {
   @IsEmail()
-  address!: string;
+  email!: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsString()
+  @MinLength(10)
+  password!: string;
 
   @IsOptional()
   @IsInt()
   @Min(128)
   @Max(102400)
   quotaMb?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean;
 }

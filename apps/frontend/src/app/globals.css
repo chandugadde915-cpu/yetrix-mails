@@ -110,6 +110,38 @@ input {
   color: #111827;
 }
 
+.button.danger {
+  background: #fee2e2;
+  color: var(--danger);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.danger-icon {
+  color: var(--danger);
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -216,6 +248,50 @@ input {
 
 .muted-text {
   color: var(--muted);
+}
+
+.notice {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #115e59;
+  font-weight: 700;
+}
+
+.inline-create,
+.mailbox-create {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.inline-create {
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  align-items: center;
+}
+
+.mailbox-create {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(160px, 0.8fr) minmax(160px, 0.8fr) 110px auto;
+}
+
+.inline-create input,
+.mailbox-create input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fbfcfe;
+}
+
+.inline-create span {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .dashboard-layout {
@@ -612,6 +688,15 @@ input {
 .dns-value svg {
   flex: 0 0 auto;
   color: var(--accent);
+}
+
+.domain-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .quota-cell {
@@ -1175,7 +1260,9 @@ input {
   .domain-command,
   .domain-board,
   .settings-grid,
-  .webmail-layout {
+  .webmail-layout,
+  .inline-create,
+  .mailbox-create {
     grid-template-columns: 1fr;
   }
 

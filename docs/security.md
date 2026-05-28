@@ -3,6 +3,10 @@
 ## Must-Have Before Real Customers
 
 - Replace the temporary `admin` / `admin` frontend demo login with real backend authentication.
+- Keep `MAILCOW_API_KEY` only in backend environment variables.
+- Never call the Mailcow API directly from the Vercel frontend.
+- Restrict CORS with `CORS_ORIGIN` to the deployed frontend domain only.
+- Keep the Mailcow admin UI internal/admin-only.
 - Real user authentication with MFA-ready account recovery.
 - Workspace roles: owner, admin, support, billing.
 - Per-workspace authorization on every domain and mailbox query.

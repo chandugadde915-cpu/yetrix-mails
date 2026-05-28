@@ -18,16 +18,28 @@
         {
           "name": "PORT",
           "value": "4000"
+        },
+        {
+          "name": "CORS_ORIGIN",
+          "value": "https://your-vercel-frontend-domain"
+        },
+        {
+          "name": "MAILCOW_BASE_URL",
+          "value": "https://mail.yetrixmails.com"
+        },
+        {
+          "name": "MAIL_DOMAIN",
+          "value": "yetrixtechnologies.com"
+        },
+        {
+          "name": "MAIL_SERVER_IP",
+          "value": "56.228.11.175"
         }
       ],
       "secrets": [
         {
-          "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:ownmail/database-url"
-        },
-        {
-          "name": "REDIS_URL",
-          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:ownmail/redis-url"
+          "name": "MAILCOW_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:YOUR_REGION:YOUR_ACCOUNT_ID:secret:yetrix/mailcow-api-key"
         }
       ],
       "logConfiguration": {

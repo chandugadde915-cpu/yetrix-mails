@@ -1,9 +1,21 @@
 import { AppShell } from "@/components/AppShell";
+import { apiGet } from "@/lib/api";
 import { getDummyData } from "@/lib/dummy-data";
 import { Activity, Database, Globe2, Inbox, Plus, RefreshCw, Send } from "lucide-react";
 
-export default function DashboardPage() {
-  const { domains, mailboxes, metrics, workspace } = getDummyData();
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const fallback = getDummyData();
+  const domains = await apiGet("/api/domains", fallback.domains);
+  const mailboxes = await apiGet("/api/mailboxes", fallback.mailboxes);
+  const metrics = {
+    ...fallback.metrics,
+    totalDomains: domains.length,
+    verifiedDomains: domains.filter((domain) => domain.status === "active").length,
+    activeMailboxes: mailboxes.filter((mailbox) => mailbox.status === "active").length,
+  };
+  const workspace = fallback.workspace;
 
   return (
     <AppShell>
@@ -78,7 +90,7 @@ export default function DashboardPage() {
                   <td>{domain.domain}</td>
                   <td>
                     <span className={`badge ${domain.status === "active" ? "good" : "warn"}`}>
-                      {domain.status === "active" ? "Verified" : "Pending DNS"}
+                    {domain.status === "active" ? "Verified" : "Pending"}
                     </span>
                   </td>
                   <td>{domain.mailboxes}</td>
