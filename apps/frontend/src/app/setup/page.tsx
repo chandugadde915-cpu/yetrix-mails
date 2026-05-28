@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/AppShell";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { PageHeader } from "@/components/PageHeader";
+import { SaasProductFlow } from "@/components/SaasProductFlow";
 import { StatusNotice } from "@/components/StatusNotice";
 import { WorkspaceFlow } from "@/components/WorkspaceFlow";
 import { WorkspaceSyncButton } from "@/components/WorkspaceSyncButton";
@@ -17,12 +18,13 @@ export default async function SetupPage() {
   return (
     <AppShell>
       <PageHeader
-        title="Launch Flow"
-        description="Complete the production path from domain ownership to working send and receive mail."
+        title="Product Flow"
+        description="Role-based SaaS screens from signup to hosted mail operations."
       />
       <StatusNotice errors={errors} message="Some setup data is temporarily unavailable." />
       <WorkspaceSyncButton />
       <OnboardingChecklist domains={domains} mailboxes={mailboxes} status={status} />
+      <SaasProductFlow domains={domains} mailboxes={mailboxes} status={status} />
       <WorkspaceFlow domains={domains} mailboxes={mailboxes} status={status} />
     </AppShell>
   );

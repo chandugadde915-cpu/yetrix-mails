@@ -26,6 +26,7 @@ Browser UI
 
 - `AppShell` owns the workspace layout and sidebar.
 - `navigation.ts` owns route groups and labels.
+- `screen-flow.ts` owns SaaS screen assignment by role and launch stage.
 - `PageHeader` owns title/action layout for pages.
 - `StatusNotice` owns safe degraded-state messaging.
 - `MetricCard` owns simple dashboard metric cards.

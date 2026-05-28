@@ -1502,6 +1502,137 @@ textarea {
   line-height: 1.45;
 }
 
+.saas-flow {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background:
+    linear-gradient(125deg, rgba(37, 99, 235, 0.1), transparent 35%),
+    linear-gradient(260deg, rgba(15, 118, 110, 0.13), transparent 34%),
+    #ffffff;
+}
+
+.saas-flow-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.saas-flow h2 {
+  max-width: 760px;
+  margin: 12px 0 8px;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.saas-flow p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.role-lanes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.role-lanes div {
+  display: grid;
+  gap: 5px;
+  min-height: 82px;
+  padding: 12px;
+  border: 1px solid rgba(15, 118, 110, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.role-lanes span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.role-lanes strong {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.saas-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.saas-stage {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 214px;
+  padding: 12px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.saas-stage.complete {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.saas-stage-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.saas-stage-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.saas-stage.complete .saas-stage-icon {
+  background: #ccfbf1;
+  color: #115e59;
+}
+
+.saas-stage h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.saas-stage p {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.screen-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.screen-chips a {
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .superadmin-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.55fr);
@@ -2499,6 +2630,9 @@ textarea {
   .launch-hero,
   .launch-console-body,
   .launch-checklist,
+  .saas-flow-head,
+  .role-lanes,
+  .saas-stage-grid,
   .superadmin-hero,
   .superadmin-layout,
   .flow-grid,
@@ -2596,6 +2730,7 @@ textarea {
 
   .split-row,
   .launch-console-head,
+  .saas-flow-head,
   .domain-card-head,
   .record-line,
   .message-head {

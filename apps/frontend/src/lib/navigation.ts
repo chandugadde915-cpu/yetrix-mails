@@ -25,28 +25,38 @@ export interface NavSection {
 
 export const navSections: NavSection[] = [
   {
-    title: "Launch",
+    title: "Start",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/setup", label: "Launch Flow", icon: ListChecks },
+      { href: "/setup", label: "Product Flow", icon: ListChecks },
+    ],
+  },
+  {
+    title: "Provision",
+    items: [
       { href: "/domains", label: "Domains", icon: Globe2 },
       { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
       { href: "/aliases", label: "Aliases", icon: AtSign },
     ],
   },
   {
-    title: "Workspace",
+    title: "Mail",
     items: [
       { href: "/webmail", label: "Mail Workspace", icon: Mail },
-      { href: "/operations", label: "Operations", icon: ShieldCheck },
     ],
   },
   {
-    title: "Business",
+    title: "Operate",
     items: [
-      { href: "/superadmin", label: "Superadmin", icon: Crown },
+      { href: "/operations", label: "Operations", icon: ShieldCheck },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
+  {
+    title: "Platform",
+    items: [
+      { href: "/superadmin", label: "Superadmin", icon: Crown },
     ],
   },
 ];
