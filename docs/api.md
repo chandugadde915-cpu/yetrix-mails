@@ -43,6 +43,7 @@ POST /auth/signup
 
 ```text
 GET    /api/workspace
+GET    /api/billing/usage
 GET    /api/workspaces
 PUT    /api/workspace
 POST   /api/workspace/sync
@@ -154,7 +155,10 @@ POST /api/mail/connection-test
 POST /api/mail/folders
 POST /api/mail/messages
 POST /api/mail/message
+POST /api/mail/message/archive
+POST /api/mail/message/trash
 POST /api/mail/message/delete
+POST /api/mail/contacts
 POST /api/mail/send
 ```
 
@@ -188,6 +192,26 @@ Read or delete message body:
   "id": "123"
 }
 ```
+
+The read-message response includes plain text, sanitized HTML when present, and received attachment
+metadata. Attachments up to the browser preview limit include `dataBase64` for download.
+
+The same mailbox-session endpoints are available for the mailbox-user portal without an admin
+bearer token under:
+
+```text
+POST /public/mail/connection-test
+POST /public/mail/folders
+POST /public/mail/messages
+POST /public/mail/message
+POST /public/mail/message/archive
+POST /public/mail/message/trash
+POST /public/mail/message/delete
+POST /public/mail/contacts
+POST /public/mail/send
+```
+
+These public mailbox endpoints still require the mailbox email and mailbox password in the body.
 
 ## Operations
 
@@ -230,3 +254,13 @@ Send body:
 
 Attachments are limited to five files per send request. The backend stores sent files in
 `LOCAL_MAIL_STORAGE_DIR` and records metadata in `sent_attachments` when the database is enabled.
+
+## Billing Usage
+
+```text
+GET /api/billing/usage
+```
+
+Returns plan name, workspace usage, soft limits, and over-limit flags. Current limits are read from
+`PLAN_NAME`, `PLAN_LIMIT_DOMAINS`, `PLAN_LIMIT_MAILBOXES`, `PLAN_LIMIT_ALIASES`,
+`PLAN_LIMIT_USERS`, and `PLAN_LIMIT_STORAGE_MB`.

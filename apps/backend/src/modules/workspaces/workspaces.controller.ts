@@ -24,6 +24,11 @@ export class WorkspacesController {
     return this.workspaces.getWorkspace(req.user?.workspaceId, isSuperAdmin(req));
   }
 
+  @Get("billing/usage")
+  getBillingUsage(@Req() req: AuthenticatedRequest) {
+    return this.workspaces.getBillingUsage(req.user?.workspaceId, isSuperAdmin(req));
+  }
+
   @Get("workspaces")
   listWorkspaces(@Req() req: AuthenticatedRequest) {
     requireRole(req, ["superadmin"]);

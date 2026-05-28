@@ -16,10 +16,15 @@ export default function LandingPage() {
           <Mail size={22} />
           Yetrix Mails
         </Link>
-        <Link className="button secondary landing-login" href="/login">
-          Login
-          <ArrowRight size={18} />
-        </Link>
+        <div className="landing-actions">
+          <Link className="button secondary landing-login" href="/mail-login">
+            Mailbox
+          </Link>
+          <Link className="button secondary landing-login" href="/login">
+            Login
+            <ArrowRight size={18} />
+          </Link>
+        </div>
       </nav>
 
       <section className="hero">
@@ -40,6 +45,9 @@ export default function LandingPage() {
             </Link>
             <Link className="button secondary" href="/signup">
               Create workspace
+            </Link>
+            <Link className="button secondary" href="/mail-login">
+              Mailbox login
             </Link>
             <span className="demo-credential">Secure admin access</span>
           </div>

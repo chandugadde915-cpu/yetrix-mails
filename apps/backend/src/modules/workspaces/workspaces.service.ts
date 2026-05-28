@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { hashPassword, verifyPassword } from "../../common/password";
 import { DatabaseService } from "../database/database.service";
 
@@ -31,7 +32,10 @@ export interface UserRow {
 
 @Injectable()
 export class WorkspacesService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly config: ConfigService,
+  ) {}
 
   async getWorkspace(workspaceId?: string, includeAll = false) {
     if (!this.database.enabled) {
@@ -153,6 +157,48 @@ export class WorkspacesService {
         users: Number(workspace.users ?? 0),
       },
     }));
+  }
+
+  async getBillingUsage(workspaceId?: string, includeAll = false) {
+    if (!this.database.enabled) {
+      return this.planEnvelope({
+        domains: 0,
+        mailboxes: 0,
+        aliases: 0,
+        users: 0,
+        storageUsedMb: 0,
+        storageLimitMb: 0,
+      });
+    }
+
+    const id = includeAll ? null : this.optionalWorkspace(workspaceId);
+    const result = await this.database.query<{
+      domains: string;
+      mailboxes: string;
+      aliases: string;
+      users: string;
+      storage_limit_mb: string;
+    }>(
+      `
+        SELECT
+          (SELECT count(*) FROM domains WHERE ($1::uuid IS NULL OR workspace_id = $1)) AS domains,
+          (SELECT count(*) FROM mailboxes WHERE ($1::uuid IS NULL OR workspace_id = $1)) AS mailboxes,
+          (SELECT count(*) FROM aliases WHERE ($1::uuid IS NULL OR workspace_id = $1)) AS aliases,
+          (SELECT count(*) FROM users WHERE ($1::uuid IS NULL OR workspace_id = $1)) AS users,
+          (SELECT COALESCE(sum(quota_mb), 0) FROM mailboxes WHERE ($1::uuid IS NULL OR workspace_id = $1)) AS storage_limit_mb
+      `,
+      [id],
+    );
+    const row = result.rows[0];
+
+    return this.planEnvelope({
+      domains: Number(row?.domains ?? 0),
+      mailboxes: Number(row?.mailboxes ?? 0),
+      aliases: Number(row?.aliases ?? 0),
+      users: Number(row?.users ?? 0),
+      storageUsedMb: 0,
+      storageLimitMb: Number(row?.storage_limit_mb ?? 0),
+    });
   }
 
   async listUsers(workspaceId?: string, includeAll = false) {
@@ -315,5 +361,40 @@ export class WorkspacesService {
     }
 
     return role;
+  }
+
+  private planEnvelope(usage: {
+    domains: number;
+    mailboxes: number;
+    aliases: number;
+    users: number;
+    storageUsedMb: number;
+    storageLimitMb: number;
+  }) {
+    const limits = {
+      domains: this.config.get<number>("PLAN_LIMIT_DOMAINS", 3),
+      mailboxes: this.config.get<number>("PLAN_LIMIT_MAILBOXES", 25),
+      aliases: this.config.get<number>("PLAN_LIMIT_ALIASES", 100),
+      users: this.config.get<number>("PLAN_LIMIT_USERS", 10),
+      storageMb: this.config.get<number>("PLAN_LIMIT_STORAGE_MB", 25 * 1024),
+    };
+
+    return {
+      plan: this.config.get<string>("PLAN_NAME", "Launch"),
+      status: "active",
+      renewal: null,
+      limits,
+      usage: {
+        ...usage,
+        storageLimitMb: usage.storageLimitMb || limits.storageMb,
+      },
+      overLimit: {
+        domains: usage.domains > limits.domains,
+        mailboxes: usage.mailboxes > limits.mailboxes,
+        aliases: usage.aliases > limits.aliases,
+        users: usage.users > limits.users,
+        storage: usage.storageUsedMb > limits.storageMb,
+      },
+    };
   }
 }

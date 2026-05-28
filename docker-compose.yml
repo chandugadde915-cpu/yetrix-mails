@@ -17,6 +17,14 @@ services:
       MAILCOW_DKIM_SELECTOR: ${MAILCOW_DKIM_SELECTOR:-dkim}
       MAIL_CLIENT_HOST: ${MAIL_CLIENT_HOST:-mail.yetrixtechnologies.com}
       LOCAL_MAIL_STORAGE_DIR: ${LOCAL_MAIL_STORAGE_DIR:-/app/storage/sent-attachments}
+      RATE_LIMIT_PER_WINDOW: ${RATE_LIMIT_PER_WINDOW:-240}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+      PLAN_NAME: ${PLAN_NAME:-Launch}
+      PLAN_LIMIT_DOMAINS: ${PLAN_LIMIT_DOMAINS:-3}
+      PLAN_LIMIT_MAILBOXES: ${PLAN_LIMIT_MAILBOXES:-25}
+      PLAN_LIMIT_ALIASES: ${PLAN_LIMIT_ALIASES:-100}
+      PLAN_LIMIT_USERS: ${PLAN_LIMIT_USERS:-10}
+      PLAN_LIMIT_STORAGE_MB: ${PLAN_LIMIT_STORAGE_MB:-25600}
     volumes:
       - ./storage/sent-attachments:/app/storage/sent-attachments
     ports:

@@ -55,6 +55,30 @@ export class MailWorkspaceController {
     return this.mailWorkspace.deleteMessage(body);
   }
 
+  @Post("message/archive")
+  async archiveMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
+    return this.mailWorkspace.archiveMessage(body);
+  }
+
+  @Post("message/trash")
+  async trashMessage(@Req() req: AuthenticatedRequest, @Body() body: MessageActionDto) {
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
+    return this.mailWorkspace.trashMessage(body);
+  }
+
+  @Post("contacts")
+  async listContacts(@Req() req: AuthenticatedRequest, @Body() body: MailSessionDto) {
+    if (!isSuperAdmin(req)) {
+      await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
+    }
+    return this.mailWorkspace.listContacts(body);
+  }
+
   @Post("send")
   async sendMessage(@Req() req: AuthenticatedRequest, @Body() body: SendMessageDto) {
     if (!isSuperAdmin(req)) {

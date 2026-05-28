@@ -20,6 +20,26 @@ interface StoredAttachment {
   storagePath: string;
 }
 
+export interface MessageAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  dataBase64?: string;
+}
+
+interface ParsedMessageBody {
+  text: string;
+  html: string;
+  attachments: MessageAttachment[];
+}
+
+export interface MailContact {
+  email: string;
+  name?: string;
+  source: "sender" | "recipient";
+}
+
 @Injectable()
 export class MailWorkspaceService {
   private readonly host: string;
@@ -92,12 +112,12 @@ export class MailWorkspaceService {
           envelope: true,
           flags: true,
           internalDate: true,
-          source: { maxLength: 3500 },
+          source: { maxLength: 12000 },
           uid: true,
         },
         uidList ? { uid: true } : undefined,
       )) {
-        const text = this.rawBodyText(message.source);
+        const parsed = this.parseMessageSource(message.source, false);
         messages.push({
           id: String(message.uid),
           from: message.envelope?.from?.map((item) => item.address).join(", ") ?? "",
@@ -105,7 +125,8 @@ export class MailWorkspaceService {
           subject: message.envelope?.subject ?? "(No subject)",
           date: message.internalDate ? new Date(message.internalDate).toISOString() : null,
           seen: message.flags?.has("\\Seen") ?? false,
-          preview: this.preview(text),
+          preview: this.preview(parsed.text || this.textFromHtml(parsed.html)),
+          hasAttachments: parsed.attachments.length > 0,
         });
       }
 
@@ -121,7 +142,7 @@ export class MailWorkspaceService {
           envelope: true,
           flags: true,
           internalDate: true,
-          source: { maxLength: 200000 },
+          source: { maxLength: 12 * 1024 * 1024 },
           uid: true,
         },
         { uid: true },
@@ -132,7 +153,7 @@ export class MailWorkspaceService {
       }
 
       await client.messageFlagsAdd(input.id, ["\\Seen"], { uid: true });
-      const text = this.rawBodyText(message.source);
+      const parsed = this.parseMessageSource(message.source, true);
 
       return {
         id: String(message.uid),
@@ -142,7 +163,9 @@ export class MailWorkspaceService {
         subject: message.envelope?.subject ?? "(No subject)",
         date: message.internalDate ? new Date(message.internalDate).toISOString() : null,
         seen: true,
-        text,
+        text: parsed.text,
+        html: parsed.html,
+        attachments: parsed.attachments,
         rawPreview: message.source?.toString("utf8", 0, 6000) ?? "",
       };
     });
@@ -156,6 +179,36 @@ export class MailWorkspaceService {
         deleted: true,
       };
     });
+  }
+
+  async archiveMessage(input: { email: string; password: string; id: string; folder?: string }) {
+    return this.moveMessage(input, "\\Archive", "Archive");
+  }
+
+  async trashMessage(input: { email: string; password: string; id: string; folder?: string }) {
+    return this.moveMessage(input, "\\Trash", "Trash");
+  }
+
+  async listContacts(input: { email: string; password: string; folder?: string }) {
+    const contacts = new Map<string, MailContact>();
+    await this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
+      const exists = client.mailbox ? client.mailbox.exists : 0;
+      if (exists === 0) {
+        return;
+      }
+
+      const range = `${Math.max(1, exists - 99)}:*`;
+      for await (const message of client.fetch(range, { envelope: true })) {
+        for (const item of message.envelope?.from ?? []) {
+          this.addContact(contacts, item.address, item.name, "sender");
+        }
+        for (const item of [...(message.envelope?.to ?? []), ...(message.envelope?.cc ?? [])]) {
+          this.addContact(contacts, item.address, item.name, "recipient");
+        }
+      }
+    });
+
+    return Array.from(contacts.values()).sort((a, b) => a.email.localeCompare(b.email));
   }
 
   async sendMessage(input: {
@@ -182,7 +235,7 @@ export class MailWorkspaceService {
         path: attachment.storagePath,
       })),
     });
-    await this.saveSentCopy(input).catch(() => undefined);
+    await this.saveSentCopy(input, storedAttachments).catch(() => undefined);
     await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments);
 
     return {
@@ -205,29 +258,75 @@ export class MailWorkspaceService {
     text: string;
     cc?: string;
     attachments?: SendAttachment[];
-  }) {
+  }, attachments: StoredAttachment[]) {
     await this.withImap({ email: input.from, password: input.password }, async (client) => {
       const folders = await client.list();
       const sentFolder =
         folders.find((folder) => folder.specialUse === "\\Sent")?.path ??
         folders.find((folder) => /sent/i.test(folder.name))?.path ??
         "Sent";
+      if (!folders.some((folder) => folder.path === sentFolder)) {
+        await client.mailboxCreate(sentFolder).catch(() => undefined);
+      }
 
-      const raw = [
-        `From: ${input.from}`,
-        `To: ${input.to}`,
-        input.cc ? `Cc: ${input.cc}` : "",
-        `Subject: ${input.subject}`,
-        `Date: ${new Date().toUTCString()}`,
-        "Content-Type: text/plain; charset=utf-8",
-        "",
-        input.text,
-      ]
-        .filter(Boolean)
-        .join("\r\n");
-
+      const raw = await this.buildRawMessage(input, attachments);
       await client.append(sentFolder, raw, ["\\Seen"], new Date());
     });
+  }
+
+  private async moveMessage(
+    input: { email: string; password: string; id: string; folder?: string },
+    specialUse: string,
+    fallbackFolder: string,
+  ) {
+    return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
+      const folders = await client.list();
+      const destination =
+        folders.find((folder) => folder.specialUse === specialUse)?.path ??
+        folders.find((folder) => folder.name.toLowerCase() === fallbackFolder.toLowerCase())?.path ??
+        fallbackFolder;
+
+      if (!folders.some((folder) => folder.path === destination)) {
+        await client.mailboxCreate(destination).catch(() => undefined);
+      }
+
+      await client.messageMove(input.id, destination, { uid: true });
+      return {
+        id: input.id,
+        folder: destination,
+        moved: true,
+      };
+    });
+  }
+
+  private async buildRawMessage(
+    input: {
+      from: string;
+      to: string;
+      subject: string;
+      text: string;
+      cc?: string;
+    },
+    attachments: StoredAttachment[],
+  ) {
+    const builder = nodemailer.createTransport({
+      buffer: true,
+      newline: "windows",
+      streamTransport: true,
+    });
+    const result = await builder.sendMail({
+      from: input.from,
+      to: input.to,
+      cc: input.cc,
+      subject: input.subject,
+      text: input.text,
+      attachments: attachments.map((attachment) => ({
+        filename: attachment.filename,
+        contentType: attachment.contentType,
+        path: attachment.storagePath,
+      })),
+    });
+    return result.message as Buffer;
   }
 
   private async storeAttachments(attachments: SendAttachment[]): Promise<StoredAttachment[]> {
@@ -360,17 +459,175 @@ export class MailWorkspaceService {
     });
   }
 
-  private rawBodyText(source?: Buffer) {
-    if (!source) return "";
+  private parseMessageSource(source?: Buffer, includeAttachmentData = false): ParsedMessageBody {
+    if (!source) {
+      return { text: "", html: "", attachments: [] };
+    }
 
-    const raw = source.toString("utf8");
-    const body = raw.split(/\r?\n\r?\n/).slice(1).join("\n\n") || raw;
+    const parsed: ParsedMessageBody = { text: "", html: "", attachments: [] };
+    this.walkMimePart(source.toString("utf8"), parsed, includeAttachmentData);
+    return {
+      ...parsed,
+      html: this.sanitizeHtml(parsed.html),
+      text: parsed.text.trim(),
+    };
+  }
+
+  private walkMimePart(raw: string, parsed: ParsedMessageBody, includeAttachmentData: boolean) {
+    const splitAt = raw.search(/\r?\n\r?\n/);
+    const headerText = splitAt >= 0 ? raw.slice(0, splitAt) : "";
+    const body = splitAt >= 0 ? raw.slice(splitAt).replace(/^\r?\n\r?\n/, "") : raw;
+    const headers = this.parseHeaders(headerText);
+    const contentType = headers["content-type"] ?? "text/plain";
+    const disposition = headers["content-disposition"] ?? "";
+    const transferEncoding = (headers["content-transfer-encoding"] ?? "").toLowerCase();
+    const boundary = this.headerParam(contentType, "boundary");
+
+    if (boundary) {
+      for (const part of this.splitMimeParts(body, boundary)) {
+        this.walkMimePart(part, parsed, includeAttachmentData);
+      }
+      return;
+    }
+
+    const filename =
+      this.headerParam(disposition, "filename") ??
+      this.headerParam(contentType, "name") ??
+      "";
+    const isAttachment = /attachment/i.test(disposition) || Boolean(filename);
+    const decoded = this.decodeMimeBody(body, transferEncoding);
+    const lowerType = contentType.toLowerCase();
+
+    if (isAttachment) {
+      const safeName = this.safeFilename(filename || "attachment");
+      parsed.attachments.push({
+        id: `${parsed.attachments.length}-${safeName}`,
+        filename: safeName,
+        contentType: lowerType.split(";")[0] || "application/octet-stream",
+        sizeBytes: decoded.byteLength,
+        dataBase64:
+          includeAttachmentData && decoded.byteLength <= 8 * 1024 * 1024
+            ? decoded.toString("base64")
+            : undefined,
+      });
+      return;
+    }
+
+    const decodedText = decoded.toString("utf8").trim();
+    if (lowerType.includes("text/html")) {
+      parsed.html = parsed.html || decodedText;
+      return;
+    }
+
+    if (lowerType.includes("text/plain")) {
+      parsed.text = parsed.text || decodedText;
+    }
+  }
+
+  private parseHeaders(headerText: string) {
+    const headers: Record<string, string> = {};
+    const lines = headerText.replace(/\r/g, "").split("\n");
+    let active = "";
+
+    for (const line of lines) {
+      if (/^\s/.test(line) && active) {
+        headers[active] = `${headers[active]} ${line.trim()}`;
+        continue;
+      }
+
+      const index = line.indexOf(":");
+      if (index === -1) {
+        continue;
+      }
+
+      active = line.slice(0, index).trim().toLowerCase();
+      headers[active] = line.slice(index + 1).trim();
+    }
+
+    return headers;
+  }
+
+  private headerParam(value: string, param: string) {
+    const pattern = new RegExp(`${param}\\*?=(?:"([^"]+)"|([^;]+))`, "i");
+    const match = value.match(pattern);
+    if (!match) {
+      return null;
+    }
+
+    const raw = (match[1] ?? match[2] ?? "").trim();
+    try {
+      return decodeURIComponent(raw.replace(/^utf-8''/i, ""));
+    } catch {
+      return raw;
+    }
+  }
+
+  private splitMimeParts(body: string, boundary: string) {
     return body
+      .split(`--${boundary}`)
+      .map((part) => part.trim())
+      .filter((part) => part && part !== "--" && !part.startsWith("--"));
+  }
+
+  private decodeMimeBody(body: string, transferEncoding: string) {
+    const cleanBody = body.replace(/\r?\n--$/g, "").trim();
+    if (transferEncoding === "base64") {
+      return Buffer.from(cleanBody.replace(/\s/g, ""), "base64");
+    }
+
+    if (transferEncoding === "quoted-printable") {
+      return Buffer.from(this.decodeQuotedPrintable(cleanBody), "utf8");
+    }
+
+    return Buffer.from(cleanBody, "utf8");
+  }
+
+  private decodeQuotedPrintable(value: string) {
+    return value
       .replace(/=\r?\n/g, "")
-      .replace(/=20/g, " ")
-      .replace(/=0A/g, "\n")
-      .replace(/\r/g, "")
+      .replace(/=([a-fA-F0-9]{2})/g, (_, hex: string) =>
+        String.fromCharCode(Number.parseInt(hex, 16)),
+      );
+  }
+
+  private sanitizeHtml(html: string) {
+    if (!html) {
+      return "";
+    }
+
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+      .replace(/\s+on[a-z]+\s*=\s*"[^"]*"/gi, "")
+      .replace(/\s+on[a-z]+\s*=\s*'[^']*'/gi, "")
+      .replace(/\s+on[a-z]+\s*=\s*[^\s>]+/gi, "")
+      .replace(/javascript:/gi, "");
+  }
+
+  private textFromHtml(html: string) {
+    return html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
+  }
+
+  private addContact(
+    contacts: Map<string, MailContact>,
+    email: string | undefined,
+    name: string | undefined,
+    source: "sender" | "recipient",
+  ) {
+    const normalized = email?.trim().toLowerCase();
+    if (!normalized || normalized === "undefined") {
+      return;
+    }
+
+    if (!contacts.has(normalized)) {
+      contacts.set(normalized, { email: normalized, name: name || undefined, source });
+    }
   }
 
   private preview(text: string) {

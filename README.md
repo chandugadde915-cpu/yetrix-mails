@@ -41,6 +41,7 @@ Pages:
 /mailboxes
 /aliases
 /webmail
+/mail-login
 /operations
 /superadmin
 /billing
@@ -53,6 +54,7 @@ Product screen assignment:
 Visitor          -> Landing, Signup, Login
 Workspace admin  -> Dashboard, Domains, Mailboxes, Aliases, Billing, Settings
 Mailbox user     -> Mail Workspace
+Mailbox user URL -> /mail-login
 Operator         -> Operations, routing, logs, health
 Superadmin       -> Superadmin global tenant console
 ```
@@ -68,9 +70,10 @@ Login
   -> Test mailbox login
   -> Sync inbox
   -> Search folders
+  -> Reply, forward, archive, trash, or delete
   -> Send self-test or outside test email
   -> Attach files when sending
-  -> Read/delete messages through backend IMAP/SMTP
+  -> Read HTML messages and download received attachments through backend IMAP/SMTP
 ```
 
 Backend admin login:
@@ -93,6 +96,14 @@ MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
 MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
 LOCAL_MAIL_STORAGE_DIR=/app/storage/sent-attachments
+RATE_LIMIT_PER_WINDOW=240
+RATE_LIMIT_WINDOW_MS=60000
+PLAN_NAME=Launch
+PLAN_LIMIT_DOMAINS=3
+PLAN_LIMIT_MAILBOXES=25
+PLAN_LIMIT_ALIASES=100
+PLAN_LIMIT_USERS=10
+PLAN_LIMIT_STORAGE_MB=25600
 DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password

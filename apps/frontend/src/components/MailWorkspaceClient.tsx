@@ -1,25 +1,38 @@
 "use client";
 
-import { apiPost } from "@/lib/client-api";
+import { apiPost, apiPostPublic } from "@/lib/client-api";
 import { Mailbox } from "@/lib/platform-data";
 import {
+  Archive,
   CheckCircle2,
+  CircleX,
+  Download,
   FileText,
   Folder,
+  Forward,
   Inbox,
   LockKeyhole,
   Paperclip,
   RefreshCw,
+  Reply,
   Search,
   Send,
   Trash2,
 } from "lucide-react";
-import { FormEvent, useMemo, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 
 interface MailFolder {
   path: string;
   name: string;
   specialUse?: string | null;
+}
+
+interface MessageAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  dataBase64?: string;
 }
 
 interface MailMessage {
@@ -30,11 +43,14 @@ interface MailMessage {
   date: string | null;
   seen: boolean;
   preview?: string;
+  hasAttachments?: boolean;
 }
 
 interface MailDetail extends MailMessage {
   cc?: string;
   text: string;
+  html?: string;
+  attachments?: MessageAttachment[];
 }
 
 interface EncodedAttachment {
@@ -43,14 +59,35 @@ interface EncodedAttachment {
   dataBase64: string;
 }
 
-export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
+interface MailContact {
+  email: string;
+  name?: string;
+  source: "sender" | "recipient";
+}
+
+interface MailWorkspaceClientProps {
+  mailboxes: Mailbox[];
+  publicMode?: boolean;
+  initialMailbox?: string;
+  initialPassword?: string;
+}
+
+export function MailWorkspaceClient({
+  mailboxes,
+  publicMode = false,
+  initialMailbox = "",
+  initialPassword = "",
+}: MailWorkspaceClientProps) {
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active");
-  const [selected, setSelected] = useState(activeMailboxes[0]?.address ?? mailboxes[0]?.address ?? "");
-  const [password, setPassword] = useState("");
+  const [selected, setSelected] = useState(
+    initialMailbox || activeMailboxes[0]?.address || mailboxes[0]?.address || "",
+  );
+  const [password, setPassword] = useState(initialPassword);
   const [folder, setFolder] = useState("INBOX");
   const [search, setSearch] = useState("");
   const [folders, setFolders] = useState<MailFolder[]>([{ path: "INBOX", name: "Inbox" }]);
   const [messages, setMessages] = useState<MailMessage[]>([]);
+  const [contacts, setContacts] = useState<MailContact[]>([]);
   const [activeMessage, setActiveMessage] = useState<MailDetail | null>(null);
   const [compose, setCompose] = useState({ to: "", subject: "", text: "" });
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -61,13 +98,31 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     () => mailboxes.find((mailbox) => mailbox.address === selected),
     [mailboxes, selected],
   );
+  const post = publicMode ? apiPostPublic : apiPost;
+  const draftKey = `yetrix-mail-draft:${publicMode ? "public" : "admin"}:${selected}`;
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(draftKey);
+    try {
+      setCompose(saved ? (JSON.parse(saved) as typeof compose) : { to: "", subject: "", text: "" });
+    } catch {
+      setCompose({ to: "", subject: "", text: "" });
+    }
+    setAttachments([]);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (compose.to || compose.subject || compose.text) {
+      window.localStorage.setItem(draftKey, JSON.stringify(compose));
+    }
+  }, [compose, draftKey]);
 
   async function loadInbox(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setNotice("");
     startTransition(async () => {
       try {
-        const data = await apiPost<MailMessage[]>("/api/mail/messages", {
+        const data = await post<MailMessage[]>("/api/mail/messages", {
           email: selected,
           password,
           folder,
@@ -77,6 +132,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
         setMessages(data);
         setActiveMessage(null);
         setNotice("Mailbox synced.");
+        void loadContacts();
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Could not sync mailbox.");
       }
@@ -87,8 +143,9 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     setNotice("");
     startTransition(async () => {
       try {
-        await apiPost("/api/mail/connection-test", { email: selected, password });
+        await post("/api/mail/connection-test", { email: selected, password });
         setNotice("Mailbox login, IMAP, and SMTP are working.");
+        void loadFolders();
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Mailbox test failed.");
       }
@@ -99,7 +156,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     setNotice("");
     startTransition(async () => {
       try {
-        const data = await apiPost<MailFolder[]>("/api/mail/folders", {
+        const data = await post<MailFolder[]>("/api/mail/folders", {
           email: selected,
           password,
         });
@@ -111,11 +168,25 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     });
   }
 
+  async function loadContacts() {
+    if (!selected || !password) return;
+
+    try {
+      const data = await post<MailContact[]>("/api/mail/contacts", {
+        email: selected,
+        password,
+      });
+      setContacts(data.slice(0, 24));
+    } catch {
+      setContacts([]);
+    }
+  }
+
   async function openMessage(id: string) {
     setNotice("");
     startTransition(async () => {
       try {
-        const message = await apiPost<MailDetail>("/api/mail/message", {
+        const message = await post<MailDetail>("/api/mail/message", {
           email: selected,
           password,
           folder,
@@ -131,23 +202,25 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     });
   }
 
-  async function deleteMessage(id: string) {
-    if (!window.confirm("Delete this message from the mailbox?")) return;
+  async function moveActiveMessage(action: "archive" | "trash" | "delete") {
+    if (!activeMessage) return;
+    const label = action === "archive" ? "Archive" : action === "trash" ? "Move to trash" : "Delete";
+    if (action === "delete" && !window.confirm("Delete this message from the mailbox?")) return;
 
     setNotice("");
     startTransition(async () => {
       try {
-        await apiPost("/api/mail/message/delete", {
+        await post(`/api/mail/message/${action}`, {
           email: selected,
           password,
           folder,
-          id,
+          id: activeMessage.id,
         });
-        setMessages((current) => current.filter((item) => item.id !== id));
-        setActiveMessage((current) => (current?.id === id ? null : current));
-        setNotice("Message deleted.");
+        setMessages((current) => current.filter((item) => item.id !== activeMessage.id));
+        setActiveMessage(null);
+        setNotice(`${label} completed.`);
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not delete message.");
+        setNotice(error instanceof Error ? error.message : `${label} failed.`);
       }
     });
   }
@@ -156,7 +229,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     setNotice("");
     startTransition(async () => {
       try {
-        await apiPost("/api/mail/send", {
+        await post("/api/mail/send", {
           from: selected,
           password,
           to: selected,
@@ -176,7 +249,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     startTransition(async () => {
       try {
         const encodedAttachments = await Promise.all(attachments.map(readAttachment));
-        await apiPost("/api/mail/send", {
+        await post("/api/mail/send", {
           from: selected,
           password,
           ...compose,
@@ -184,6 +257,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
         });
         setCompose({ to: "", subject: "", text: "" });
         setAttachments([]);
+        window.localStorage.removeItem(draftKey);
         setNotice(
           encodedAttachments.length > 0
             ? "Message sent and attachments saved locally."
@@ -195,22 +269,59 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
     });
   }
 
+  function startReply() {
+    if (!activeMessage) return;
+    setCompose({
+      to: firstAddress(activeMessage.from),
+      subject: activeMessage.subject.startsWith("Re:") ? activeMessage.subject : `Re: ${activeMessage.subject}`,
+      text: `\n\nOn ${activeMessage.date ? new Date(activeMessage.date).toLocaleString() : "this message"}, ${activeMessage.from} wrote:\n${quoteText(activeMessage.text)}`,
+    });
+  }
+
+  function startForward() {
+    if (!activeMessage) return;
+    setCompose({
+      to: "",
+      subject: activeMessage.subject.startsWith("Fwd:") ? activeMessage.subject : `Fwd: ${activeMessage.subject}`,
+      text: `\n\nForwarded message\nFrom: ${activeMessage.from}\nTo: ${activeMessage.to ?? selected}\nDate: ${
+        activeMessage.date ? new Date(activeMessage.date).toLocaleString() : ""
+      }\n\n${activeMessage.text}`,
+    });
+  }
+
+  function addContactToComposer(contact: MailContact) {
+    setCompose((current) => ({
+      ...current,
+      to: contact.email,
+    }));
+  }
+
   return (
     <section className="outlook-shell">
       <aside className="outlook-sidebar">
         <div className="outlook-account">
           <div className="metric-row">
             <LockKeyhole size={18} />
-            <div className="metric">Mailbox login</div>
+            <div className="metric">{publicMode ? "Mailbox session" : "Mailbox login"}</div>
           </div>
-          <select value={selected} onChange={(event) => setSelected(event.target.value)} required>
-            {mailboxes.map((mailbox) => (
-              <option key={mailbox.address} value={mailbox.address}>
-                {mailbox.address}
-              </option>
-            ))}
-            {mailboxes.length === 0 ? <option value="">Create a mailbox first</option> : null}
-          </select>
+          {publicMode ? (
+            <input
+              placeholder="name@company.com"
+              type="email"
+              value={selected}
+              onChange={(event) => setSelected(event.target.value)}
+              required
+            />
+          ) : (
+            <select value={selected} onChange={(event) => setSelected(event.target.value)} required>
+              {mailboxes.map((mailbox) => (
+                <option key={mailbox.address} value={mailbox.address}>
+                  {mailbox.address}
+                </option>
+              ))}
+              {mailboxes.length === 0 ? <option value="">Create a mailbox first</option> : null}
+            </select>
+          )}
           <input
             type="password"
             placeholder="Mailbox password"
@@ -262,6 +373,17 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
             </button>
           ))}
         </div>
+
+        <div className="contact-panel">
+          <strong>Contacts</strong>
+          {contacts.map((contact) => (
+            <button key={contact.email} type="button" onClick={() => addContactToComposer(contact)}>
+              <span>{initials(contact.name ?? contact.email)}</span>
+              <small>{contact.name ?? contact.email}</small>
+            </button>
+          ))}
+          {contacts.length === 0 ? <em>No contacts loaded</em> : null}
+        </div>
       </aside>
 
       <div className="outlook-list-pane">
@@ -297,7 +419,10 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
               <span className={`read-dot ${message.seen ? "seen" : ""}`} />
               <span>
                 <strong>{message.from || "Unknown sender"}</strong>
-                <small>{message.subject}</small>
+                <small>
+                  {message.subject}
+                  {message.hasAttachments ? <Paperclip size={13} /> : null}
+                </small>
                 {message.preview ? <em>{message.preview}</em> : null}
               </span>
               <time>{message.date ? new Date(message.date).toLocaleDateString() : ""}</time>
@@ -307,7 +432,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
             <div className="outlook-empty">
               <Inbox size={28} />
               <strong>No messages loaded</strong>
-              <span>{selectedMailbox?.address ?? "Mailbox"}</span>
+              <span>{selectedMailbox?.address ?? (selected || "Mailbox")}</span>
             </div>
           ) : null}
         </div>
@@ -325,20 +450,64 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
                   {activeMessage.date ? ` - ${new Date(activeMessage.date).toLocaleString()}` : ""}
                 </p>
               </div>
-              <button
-                className="icon-button danger-icon"
-                title="Delete message"
-                onClick={() => void deleteMessage(activeMessage.id)}
-              >
-                <Trash2 size={16} />
-              </button>
+              <div className="message-action-row">
+                <button className="icon-button" title="Reply" type="button" onClick={startReply}>
+                  <Reply size={16} />
+                </button>
+                <button className="icon-button" title="Forward" type="button" onClick={startForward}>
+                  <Forward size={16} />
+                </button>
+                <button
+                  className="icon-button"
+                  title="Archive"
+                  type="button"
+                  onClick={() => void moveActiveMessage("archive")}
+                >
+                  <Archive size={16} />
+                </button>
+                <button
+                  className="icon-button danger-icon"
+                  title="Move to trash"
+                  type="button"
+                  onClick={() => void moveActiveMessage("trash")}
+                >
+                  <Trash2 size={16} />
+                </button>
+                <button
+                  className="icon-button danger-icon"
+                  title="Delete permanently"
+                  type="button"
+                  onClick={() => void moveActiveMessage("delete")}
+                >
+                  <CircleX size={16} />
+                </button>
+              </div>
             </div>
-            <pre className="message-body">{activeMessage.text || "No readable text body."}</pre>
+            {activeMessage.html ? (
+              <iframe className="message-html" sandbox="" srcDoc={activeMessage.html} title="Email body" />
+            ) : (
+              <pre className="message-body">{activeMessage.text || "No readable text body."}</pre>
+            )}
+            {(activeMessage.attachments ?? []).length > 0 ? (
+              <div className="received-attachments">
+                {(activeMessage.attachments ?? []).map((attachment) => (
+                  <button
+                    key={attachment.id}
+                    type="button"
+                    onClick={() => downloadAttachment(attachment, setNotice)}
+                  >
+                    <Download size={15} />
+                    <span>{attachment.filename}</span>
+                    <small>{formatBytes(attachment.sizeBytes)}</small>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </article>
         ) : (
           <article className="reader-card reader-empty">
             <Inbox size={30} />
-            <h1>{selectedMailbox?.address ?? "Mail workspace"}</h1>
+            <h1>{selectedMailbox?.address ?? (selected || "Mail workspace")}</h1>
             <p>No message selected.</p>
           </article>
         )}
@@ -350,7 +519,7 @@ export function MailWorkspaceClient({ mailboxes }: { mailboxes: Mailbox[] }) {
           </div>
           <input
             placeholder="To"
-            type="email"
+            type="text"
             value={compose.to}
             onChange={(event) => setCompose({ ...compose, to: event.target.value })}
             required
@@ -410,4 +579,55 @@ function readAttachment(file: File): Promise<EncodedAttachment> {
     };
     reader.readAsDataURL(file);
   });
+}
+
+function downloadAttachment(
+  attachment: MessageAttachment,
+  setNotice: (message: string) => void,
+) {
+  if (!attachment.dataBase64) {
+    setNotice("This attachment is too large to preview from the browser.");
+    return;
+  }
+
+  const bytes = Uint8Array.from(window.atob(attachment.dataBase64), (char) => char.charCodeAt(0));
+  const blob = new Blob([bytes], { type: attachment.contentType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = attachment.filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function firstAddress(value: string) {
+  return value.split(",")[0]?.trim() ?? "";
+}
+
+function quoteText(value: string) {
+  return value
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
+function initials(value: string) {
+  return value
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  return `${Math.ceil(bytes / 1024)} KB`;
 }

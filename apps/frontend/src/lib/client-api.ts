@@ -7,6 +7,14 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
+export async function apiPostPublic<T>(path: string, body: unknown): Promise<T> {
+  return apiRequest<T>(path, {
+    method: "POST",
+    body,
+    publicMailbox: true,
+  });
+}
+
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   return apiRequest<T>(path, {
     method: "PUT",
@@ -22,13 +30,17 @@ export async function apiDelete<T>(path: string): Promise<T> {
 
 async function apiRequest<T>(
   path: string,
-  options: { method: "POST" | "PUT" | "DELETE"; body?: unknown },
+  options: { method: "POST" | "PUT" | "DELETE"; body?: unknown; publicMailbox?: boolean },
 ): Promise<T> {
   if (!publicApiUrl) {
     throw new Error("NEXT_PUBLIC_API_URL is not configured");
   }
 
-  const response = await fetch(`/api/backend${path}`, {
+  const targetPath =
+    options.publicMailbox && path.startsWith("/api/mail/")
+      ? path.replace("/api/mail", "")
+      : path;
+  const response = await fetch(`${options.publicMailbox ? "/api/mailbox" : "/api/backend"}${targetPath}`, {
     method: options.method,
     headers: {
       accept: "application/json",

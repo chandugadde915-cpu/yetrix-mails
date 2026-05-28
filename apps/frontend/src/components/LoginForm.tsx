@@ -88,6 +88,9 @@ export function LoginForm() {
         <p className="auth-switch">
           Need a tenant workspace? <Link href="/signup">Create one</Link>
         </p>
+        <p className="auth-switch">
+          Opening your inbox? <Link href="/mail-login">Mailbox login</Link>
+        </p>
       </section>
     </main>
   );
