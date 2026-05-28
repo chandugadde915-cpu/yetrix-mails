@@ -1,4 +1,5 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Req } from "@nestjs/common";
+import { AuthenticatedRequest } from "../../common/auth.middleware";
 import { AuditService } from "./audit.service";
 
 @Controller("api/audit")
@@ -6,7 +7,7 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
-  listEvents() {
-    return this.auditService.list();
+  listEvents(@Req() req: AuthenticatedRequest) {
+    return this.auditService.list(req.user?.workspaceId);
   }
 }

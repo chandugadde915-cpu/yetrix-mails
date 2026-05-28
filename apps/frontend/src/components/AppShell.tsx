@@ -20,7 +20,7 @@ const navItems = [
   { href: "/domains", label: "Domains", icon: Globe2 },
   { href: "/mailboxes", label: "Mailboxes", icon: Inbox },
   { href: "/aliases", label: "Aliases", icon: AtSign },
-  { href: "/webmail", label: "Webmail", icon: Mail },
+  { href: "/webmail", label: "Mail Workspace", icon: Mail },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

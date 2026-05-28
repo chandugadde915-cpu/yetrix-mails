@@ -9,7 +9,6 @@ import {
 import {
   CheckCircle2,
   Circle,
-  ExternalLink,
   Globe2,
   Inbox,
   MailCheck,
@@ -43,7 +42,7 @@ export function WorkspaceFlow({
           <h2>From domain to working inbox in one workspace.</h2>
           <p>
             Add a domain, verify mail DNS, create mailboxes, then open webmail or configure mobile
-            mail apps using the same Mailcow backend.
+            mail apps from the Yetrix workspace.
           </p>
           <div className="launch-actions">
             <Link
@@ -56,15 +55,9 @@ export function WorkspaceFlow({
             >
               {progress.readyToSendReceive ? "Open mail workspace" : "Continue setup"}
             </Link>
-            <a
-              className="button secondary"
-              href={mailAccess.webmailUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink size={18} />
-              Webmail
-            </a>
+            <Link className="button secondary" href="/mailboxes#mailbox-create">
+              Create mailbox
+            </Link>
           </div>
         </div>
         <div className="launch-meter" aria-label="Workspace launch progress">
@@ -123,7 +116,7 @@ export function WorkspaceFlow({
           <div className="endpoint-list">
             <div>
               <span>Webmail</span>
-              <strong>SOGo</strong>
+              <strong>Yetrix</strong>
             </div>
             <div>
               <span>Status</span>

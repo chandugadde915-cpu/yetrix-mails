@@ -38,6 +38,9 @@ export default function LandingPage() {
               Login
               <ArrowRight size={18} />
             </Link>
+            <Link className="button secondary" href="/signup">
+              Create workspace
+            </Link>
             <span className="demo-credential">Secure admin access</span>
           </div>
         </div>

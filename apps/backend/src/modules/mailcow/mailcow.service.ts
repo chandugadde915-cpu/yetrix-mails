@@ -72,7 +72,7 @@ export class MailcowService {
       active: "1",
       backupmx: "0",
       relay_all_recipients: "0",
-      restart_sogo: "1",
+      restart_sogo: "0",
       rl_frame: "s",
       rl_value: 10,
     });
@@ -165,7 +165,7 @@ export class MailcowService {
       address: input.address.toLowerCase(),
       goto: input.goto.toLowerCase(),
       active: input.active === false ? "0" : "1",
-      sogo_visible: true,
+      sogo_visible: false,
     });
     this.assertMailcowSuccess(response);
     return { address: input.address.toLowerCase(), result: response };

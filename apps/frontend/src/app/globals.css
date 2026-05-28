@@ -28,7 +28,8 @@ a {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -319,6 +320,11 @@ select {
   border-radius: 8px;
   padding: 0 12px;
   background: #fbfcfe;
+}
+
+textarea {
+  min-height: 150px;
+  resize: vertical;
 }
 
 .warn-notice {
@@ -900,6 +906,31 @@ select {
   grid-template-columns: 220px minmax(0, 1fr);
 }
 
+.mail-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.65fr) minmax(0, 1.35fr);
+  gap: 16px;
+}
+
+.mail-login-panel,
+.compose-panel {
+  display: grid;
+  gap: 12px;
+  align-self: start;
+}
+
+.mail-login-panel input,
+.mail-login-panel select,
+.compose-panel input,
+.compose-panel textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfcfe;
+}
+
 .folder-list {
   align-self: start;
 }
@@ -1343,6 +1374,15 @@ select {
   margin-top: 4px;
 }
 
+.auth-switch {
+  margin-top: 18px;
+}
+
+.auth-switch a {
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .form-error {
   padding: 10px 12px;
   border-radius: 8px;
@@ -1498,6 +1538,7 @@ select {
   .flow-grid,
   .flow-detail-grid,
   .settings-grid,
+  .mail-workspace-grid,
   .webmail-layout,
   .inline-create,
   .mailbox-create {

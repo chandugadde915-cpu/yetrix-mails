@@ -38,7 +38,6 @@ export interface PlatformStatus {
 }
 
 export const mailAccess = {
-  webmailUrl: "https://mail.yetrixtechnologies.com/SOGo/",
   host: "mail.yetrixtechnologies.com",
   imap: {
     port: 993,
@@ -99,8 +98,8 @@ export function workspaceProgress(domains: Domain[], mailboxes: Mailbox[], statu
     {
       title: "Mail engine connected",
       detail: status?.mailcow?.connected
-        ? "Mailcow API is reachable through the backend."
-        : "Connect Mailcow API before provisioning workspaces.",
+        ? "The private mail engine is reachable through the backend."
+        : "Connect the private mail engine before provisioning workspaces.",
       complete: Boolean(status?.mailcow?.connected),
       href: "/settings",
     },
@@ -135,8 +134,8 @@ export function workspaceProgress(domains: Domain[], mailboxes: Mailbox[], statu
       title: "Webmail ready",
       detail:
         activeMailboxes.length > 0
-          ? "Users can sign in to webmail and mobile mail apps."
-          : "Create a mailbox before opening the mail workspace.",
+          ? "Users can sign in to the Yetrix mail workspace."
+          : "Create a mailbox before opening the Yetrix mail workspace.",
       complete: activeMailboxes.length > 0,
       href: "/webmail",
     },

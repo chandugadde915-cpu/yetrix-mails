@@ -55,7 +55,7 @@ export default async function BillingPage() {
       <section className="panel section">
         <div className="title">
           <h1>Usage Ledger</h1>
-          <p>Current customer-facing capacity pulled from Mailcow through the backend API.</p>
+          <p>Current customer-facing capacity pulled through the Yetrix backend API.</p>
         </div>
         <table className="table">
           <thead>

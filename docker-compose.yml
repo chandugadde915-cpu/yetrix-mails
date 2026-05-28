@@ -9,10 +9,28 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       AUTH_SECRET: ${AUTH_SECRET}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ownmail:ownmail@postgres:5432/ownmail}
       MAILCOW_BASE_URL: ${MAILCOW_BASE_URL:-https://mail.yetrixtechnologies.com}
       MAILCOW_API_KEY: ${MAILCOW_API_KEY}
       MAIL_DOMAIN: ${MAIL_DOMAIN:-yetrixtechnologies.com}
       MAIL_SERVER_IP: ${MAIL_SERVER_IP:-56.228.11.175}
       MAILCOW_DKIM_SELECTOR: ${MAILCOW_DKIM_SELECTOR:-dkim}
+      MAIL_CLIENT_HOST: ${MAIL_CLIENT_HOST:-mail.yetrixtechnologies.com}
     ports:
       - "4000:4000"
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ownmail
+      POSTGRES_USER: ownmail
+      POSTGRES_PASSWORD: ownmail
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:

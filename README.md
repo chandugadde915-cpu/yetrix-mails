@@ -4,20 +4,20 @@ SaaS mail control panel with:
 
 - Frontend on Vercel
 - Backend API at `https://api.yetrixtechnologies.com`
-- Mailcow as the backend mail engine at `https://mail.yetrixtechnologies.com`
+- Private mail engine at `https://mail.yetrixtechnologies.com`
 - Clean frontend REST API calls through the backend only
 
-Mailcow API keys are never exposed to the browser. The frontend talks only to the backend; the backend talks to Mailcow with `MAILCOW_API_KEY` from server environment variables.
+Mail engine API keys are never exposed to the browser. The frontend talks only to the backend; the backend talks to the mail engine with `MAILCOW_API_KEY` from server environment variables.
 
 ## Repository Layout
 
 ```text
 apps/
   frontend/       Next.js dashboard for Vercel
-  backend/        NestJS API proxy/control layer for Mailcow
+  backend/        NestJS API, tenant, and mail control layer
 docs/
   api.md          Backend API contract
-  deployment.md   Vercel, Docker, and Mailcow setup
+  deployment.md   Vercel, Docker, database, and mail engine setup
 ```
 
 ## Frontend Flow
@@ -25,8 +25,8 @@ docs/
 ```text
 Vercel UI
   -> https://api.yetrixtechnologies.com
-  -> Mailcow API
-  -> https://mail.yetrixtechnologies.com
+  -> Tenant API + Mail API
+  -> Private mail engine
 ```
 
 Pages:
@@ -34,6 +34,7 @@ Pages:
 ```text
 /
 /login
+/signup
 /dashboard
 /setup
 /domains
@@ -52,8 +53,8 @@ Login
   -> Add domain
   -> Verify MX/SPF/DKIM/DMARC
   -> Create mailbox
-  -> Open webmail or configure IMAP/SMTP
-  -> Send and receive mail through Mailcow
+  -> Open Yetrix Mail Workspace
+  -> Send and receive mail through backend IMAP/SMTP
 ```
 
 Backend admin login:
@@ -74,6 +75,8 @@ MAILCOW_API_KEY=your_mailcow_api_key
 MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
+MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
+DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password
 AUTH_SECRET=replace_with_a_long_random_secret
@@ -110,6 +113,6 @@ npm --workspace apps/backend run build
 
 ## Notes
 
-- Mailcow admin UI should remain admin-only.
-- Frontend must never call Mailcow directly.
-- DNS status is checked through the backend; the browser never calls Mailcow directly.
+- The mail engine UI should remain internal/admin-only.
+- Frontend must never call the mail engine directly.
+- DNS status, CRUD, inbox sync, and sending go through the backend.

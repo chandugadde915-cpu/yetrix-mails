@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -78,6 +79,9 @@ export function LoginForm() {
             <ArrowRight size={18} />
           </button>
         </form>
+        <p className="auth-switch">
+          Need a tenant workspace? <Link href="/signup">Create one</Link>
+        </p>
       </section>
     </main>
   );

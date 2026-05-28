@@ -67,7 +67,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
           </div>
           <h2>Verify ownership, secure sending, and route mail from one place.</h2>
           <p>
-            This view reads live Mailcow domains through your backend and checks MX, SPF, DKIM,
+            This view reads live hosted domains through your backend and checks MX, SPF, DKIM,
             and DMARC against public DNS.
           </p>
         </div>

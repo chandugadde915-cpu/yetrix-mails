@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/AppShell";
+import { UsersClient, WorkspaceUser } from "@/components/UsersClient";
 import { apiGet, requireAuthToken } from "@/lib/server-api";
 import { redirect } from "next/navigation";
 
@@ -18,24 +19,23 @@ export default async function SettingsPage() {
     api: { healthy: boolean; timestamp: string };
     mailcow: { connected: boolean; mailcowBaseUrl: string; error?: string };
   }>("/api/status");
+  const workspace = await apiGet<{
+    id: string;
+    name: string;
+    status: string;
+    counts: { domains: number; mailboxes: number; aliases: number; users: number };
+  }>("/api/workspace");
+  const users = await apiGet<WorkspaceUser[]>("/api/users");
   const audit = await apiGet<Array<{ id: string; action: string; target: string; createdAt: string }>>(
     "/api/audit",
   );
   const settings = {
     security: [
       { label: "Backend bearer-token authentication", enabled: true },
-      { label: "Mailcow API key backend-only", enabled: true },
+      { label: "Mail engine key backend-only", enabled: true },
       { label: "Restricted CORS origin", enabled: true },
-      { label: "Audit log for mailbox/domain actions", enabled: true },
+      { label: "Workspace-scoped domain and mailbox access", enabled: true },
     ],
-    admins: [{ name: "Admin", email: "admin@yetrixtechnologies.com", role: "Owner" }],
-  };
-  const workspace = {
-    name: "Yetrix Mails",
-    primaryDomain: "yetrixtechnologies.com",
-    region: "AWS eu-north-1",
-    apiUrl: "api.yetrixtechnologies.com",
-    mailHost: "mail.yetrixtechnologies.com",
   };
 
   return (
@@ -53,12 +53,12 @@ export default async function SettingsPage() {
               <strong>{health.status === "ok" ? "Online" : "Offline"}</strong>
             </div>
             <div>
-              <span>Mailcow</span>
+              <span>Mail engine</span>
               <strong>{status.mailcow.connected ? "Connected" : "Disconnected"}</strong>
             </div>
             <div>
-              <span>Mailcow URL</span>
-              <strong>{status.mailcow.mailcowBaseUrl}</strong>
+              <span>Engine access</span>
+              <strong>Backend only</strong>
             </div>
             {status.mailcow.error ? (
               <div>
@@ -77,12 +77,12 @@ export default async function SettingsPage() {
               <strong>{workspace.name}</strong>
             </div>
             <div>
-              <span>Primary domain</span>
-              <strong>{workspace.primaryDomain}</strong>
+              <span>Domains</span>
+              <strong>{workspace.counts.domains}</strong>
             </div>
             <div>
-              <span>Region</span>
-              <strong>{workspace.region}</strong>
+              <span>Users</span>
+              <strong>{workspace.counts.users}</strong>
             </div>
           </div>
         </div>
@@ -102,27 +102,10 @@ export default async function SettingsPage() {
 
       <section className="panel section">
         <div className="title">
-          <h1>Admins</h1>
-          <p>Configured backend admin access for the control panel.</p>
+          <h1>Workspace Users</h1>
+          <p>Create tenant admins, support users, and viewers for this workspace.</p>
         </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {settings.admins.map((admin) => (
-              <tr key={admin.email}>
-                <td>{admin.name}</td>
-                <td>{admin.email}</td>
-                <td>{admin.role}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <UsersClient initialUsers={users} />
       </section>
 
       <section className="panel section">

@@ -170,7 +170,7 @@ export default async function DashboardPage() {
       <section className="panel section">
         <div className="title">
           <h1>Recent Mailboxes</h1>
-          <p>Recent Mailcow mailboxes from the backend API.</p>
+          <p>Recent hosted mailboxes from the backend API.</p>
         </div>
         <table className="table">
           <thead>

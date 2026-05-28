@@ -17,7 +17,7 @@ export default async function AliasesPage() {
       <div className="topbar">
         <div className="title">
           <h1>Aliases</h1>
-          <p>Create forwarding addresses and catch-all style routing through Mailcow.</p>
+          <p>Create forwarding addresses and catch-all style routing for each workspace.</p>
         </div>
       </div>
       <AliasesClient initialAliases={aliases} />

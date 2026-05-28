@@ -5,6 +5,8 @@ import { AuthService } from "../modules/auth/auth.service";
 export interface AuthenticatedRequest extends Request {
   user?: {
     sub: string;
+    userId?: string;
+    workspaceId?: string;
     role: string;
   };
 }

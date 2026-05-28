@@ -2,7 +2,7 @@
 
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { Domain, formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
-import { ExternalLink, KeyRound, Plus, Power, Save, Trash2 } from "lucide-react";
+import { KeyRound, Mail, Plus, Power, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -238,14 +238,8 @@ export function MailboxesClient({
                     >
                       <Power size={16} />
                     </button>
-                    <a
-                      className="icon-button"
-                      href="https://mail.yetrixtechnologies.com/SOGo/"
-                      rel="noreferrer"
-                      target="_blank"
-                      title="Open webmail"
-                    >
-                      <ExternalLink size={16} />
+                    <a className="icon-button" href="/webmail" title="Open Yetrix mail workspace">
+                      <Mail size={16} />
                     </a>
                     <button
                       className="icon-button danger-icon"

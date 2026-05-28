@@ -1,6 +1,6 @@
 # Backend
 
-NestJS API that exposes clean REST endpoints for the Vercel frontend and calls Mailcow securely on the server.
+NestJS API that exposes clean REST endpoints for the Vercel frontend, stores tenant data, and calls the private mail engine securely on the server.
 
 ## Environment
 
@@ -10,6 +10,8 @@ MAILCOW_API_KEY=your_mailcow_api_key
 MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
+MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
+DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password
 AUTH_SECRET=replace_with_a_long_random_secret
@@ -22,8 +24,15 @@ CORS_ORIGIN=https://www.yetrixtechnologies.com
 ```text
 GET    /health
 POST   /auth/login
+POST   /auth/signup
 GET    /api/status
 GET    /api/audit
+GET    /api/workspace
+PUT    /api/workspace
+GET    /api/users
+POST   /api/users
+PUT    /api/users/:id
+DELETE /api/users/:id
 GET    /api/domains
 POST   /api/domains
 DELETE /api/domains/:domain
@@ -37,6 +46,8 @@ POST   /api/mailboxes/:email/enable
 GET    /api/aliases
 POST   /api/aliases
 DELETE /api/aliases/:id
+POST   /api/mail/messages
+POST   /api/mail/send
 ```
 
 All responses use:

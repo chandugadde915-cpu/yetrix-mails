@@ -14,7 +14,7 @@ Environment:
 NEXT_PUBLIC_API_URL=https://api.yetrixtechnologies.com
 ```
 
-The frontend calls only your backend API. It never calls Mailcow directly.
+The frontend calls only your backend API. It never calls the private mail engine directly.
 
 ## Backend on EC2
 
@@ -34,6 +34,8 @@ MAILCOW_API_KEY=your_mailcow_api_key
 MAIL_DOMAIN=yetrixtechnologies.com
 MAIL_SERVER_IP=56.228.11.175
 MAILCOW_DKIM_SELECTOR=dkim
+MAIL_CLIENT_HOST=mail.yetrixtechnologies.com
+DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password
 AUTH_SECRET=replace_with_a_long_random_secret
@@ -60,9 +62,9 @@ curl https://api.yetrixtechnologies.com/health
 curl https://api.yetrixtechnologies.com/api/status
 ```
 
-## Mailcow
+## Private Mail Engine
 
-Mailcow server:
+Mail engine server:
 
 ```text
 https://mail.yetrixtechnologies.com
@@ -74,10 +76,10 @@ Mail server IP:
 56.228.11.175
 ```
 
-Create a Mailcow API key in the Mailcow admin UI and store it only in the backend environment as:
+Create a mail-engine API key in the internal admin UI and store it only in the backend environment as:
 
 ```text
 MAILCOW_API_KEY
 ```
 
-Keep the Mailcow admin UI internal/admin-only.
+Keep the mail-engine UI internal/admin-only. End users should use only the Yetrix frontend.
