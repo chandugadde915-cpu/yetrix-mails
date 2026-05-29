@@ -427,12 +427,13 @@ export class WorkspacesService {
     storageLimitMb: number;
   }) {
     const limits = {
-      domains: this.config.get<number>("PLAN_LIMIT_DOMAINS", 3),
-      mailboxes: this.config.get<number>("PLAN_LIMIT_MAILBOXES", 25),
-      aliases: this.config.get<number>("PLAN_LIMIT_ALIASES", 100),
-      users: this.config.get<number>("PLAN_LIMIT_USERS", 10),
-      storageMb: this.config.get<number>("PLAN_LIMIT_STORAGE_MB", 25 * 1024),
+      domains: this.positiveConfigNumber("PLAN_LIMIT_DOMAINS", 3),
+      mailboxes: this.positiveConfigNumber("PLAN_LIMIT_MAILBOXES", 25),
+      aliases: this.positiveConfigNumber("PLAN_LIMIT_ALIASES", 100),
+      users: this.positiveConfigNumber("PLAN_LIMIT_USERS", 10),
+      storageMb: this.positiveConfigNumber("PLAN_LIMIT_STORAGE_MB", 25 * 1024),
     };
+    const storageLimitMb = usage.storageLimitMb || limits.storageMb;
 
     return {
       plan: this.config.get<string>("PLAN_NAME", "Launch"),
@@ -441,15 +442,20 @@ export class WorkspacesService {
       limits,
       usage: {
         ...usage,
-        storageLimitMb: usage.storageLimitMb || limits.storageMb,
+        storageLimitMb,
       },
       overLimit: {
         domains: usage.domains > limits.domains,
         mailboxes: usage.mailboxes > limits.mailboxes,
         aliases: usage.aliases > limits.aliases,
         users: usage.users > limits.users,
-        storage: usage.storageUsedMb > limits.storageMb,
+        storage: usage.storageUsedMb > storageLimitMb,
       },
     };
+  }
+
+  private positiveConfigNumber(key: string, fallback: number) {
+    const value = Number(this.config.get(key) ?? fallback);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
   }
 }

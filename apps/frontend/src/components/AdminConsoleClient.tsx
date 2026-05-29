@@ -6,6 +6,7 @@ import { Domain, domainHealth, Mailbox } from "@/lib/platform-data";
 import {
   AtSign,
   CheckCircle2,
+  Copy,
   Crown,
   Inbox,
   KeyRound,
@@ -24,6 +25,7 @@ export interface OperationResult {
   label: string;
   supported: boolean;
   data?: unknown;
+  error?: string;
 }
 
 interface QuarantineItem {
@@ -73,6 +75,7 @@ export function AdminConsoleClient({
     quotaMb: 5120,
   });
   const [dkimDomain, setDkimDomain] = useState(verifiedDomains[0] ?? domains[0]?.domain ?? "");
+  const [dkimRecord, setDkimRecord] = useState("");
   const [isPending, startTransition] = useTransition();
   const classifiedRoutes = routes.map((route) => ({ ...route, type: routeType(route) }));
   const groups = classifiedRoutes.filter((route) => route.type === "Group").length;
@@ -135,12 +138,44 @@ export function AdminConsoleClient({
 
   function generateDkim() {
     if (!dkimDomain) return;
-    mutate("Generating DKIM", async () => {
-      await apiPost(`/api/operations/dkim/${encodeURIComponent(dkimDomain)}`, {
-        selector: "dkim",
-        keySize: 2048,
-      });
+    setNotice("");
+    setDkimRecord("");
+    startTransition(async () => {
+      try {
+        const result = await apiPost<OperationResult>(
+          `/api/operations/dkim/${encodeURIComponent(dkimDomain)}`,
+          {
+            selector: "dkim",
+            keySize: 2048,
+          },
+        );
+        const record = extractDkimRecord(result.data, dkimDomain);
+        setDkimRecord(record);
+        setNotice(
+          record.startsWith("v=DKIM1")
+            ? "DKIM key generated. Copy the TXT value into DNS."
+            : "DKIM generation requested. Refresh the domain records to copy the TXT value.",
+        );
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Generating DKIM failed.");
+      }
     });
+  }
+
+  function generateSharedPassword() {
+    const password = createStrongPassword();
+    setSharedForm((current) => ({ ...current, password }));
+    setNotice("Shared mailbox password generated. Review it before creating the inbox.");
+  }
+
+  async function copyDkimRecord() {
+    if (!dkimRecord || !dkimRecord.startsWith("v=DKIM1")) return;
+    try {
+      await navigator.clipboard.writeText(dkimRecord);
+      setNotice("DKIM TXT value copied.");
+    } catch {
+      setNotice("Could not copy DKIM value.");
+    }
   }
 
   function toggleRoute(route: AliasRow) {
@@ -158,7 +193,8 @@ export function AdminConsoleClient({
   }
 
   function deleteRoute(route: AliasRow) {
-    if (!window.confirm(`Delete ${route.address}?`)) return;
+    const confirmation = window.prompt(`Type DELETE to remove route ${route.address}.`);
+    if (confirmation !== "DELETE") return;
     mutate("Deleting route", async () => {
       await apiDelete(`/api/aliases/${encodeURIComponent(route.id)}`);
       setRoutes((current) => current.filter((item) => item.id !== route.id));
@@ -166,6 +202,10 @@ export function AdminConsoleClient({
   }
 
   function quarantineAction(item: QuarantineItem, action: "release" | "delete" | "learnham" | "learnspam") {
+    if (action === "delete" && !window.confirm(`Delete quarantined message "${item.subject}"?`)) {
+      return;
+    }
+
     mutate("Updating quarantine", async () => {
       await apiPost(`/api/operations/quarantine/${encodeURIComponent(item.id)}/${action}`, {});
       router.refresh();
@@ -282,7 +322,7 @@ export function AdminConsoleClient({
           <div className="admin-password-row">
             <input
               aria-label="Shared mailbox password"
-              type="password"
+              type="text"
               value={sharedForm.password}
               onChange={(event) => setSharedForm({ ...sharedForm, password: event.target.value })}
               placeholder="Temporary password"
@@ -292,7 +332,7 @@ export function AdminConsoleClient({
             <button
               className="button secondary"
               type="button"
-              onClick={() => setSharedForm({ ...sharedForm, password: createStrongPassword() })}
+              onClick={generateSharedPassword}
             >
               <KeyRound size={17} />
               Generate
@@ -352,6 +392,17 @@ export function AdminConsoleClient({
             <KeyRound size={18} />
             Generate key
           </button>
+          {dkimRecord ? (
+            <div className="dkim-output">
+              <span>{dkimRecord.startsWith("v=DKIM1") ? "TXT value" : "Next step"}</span>
+              <code>{dkimRecord}</code>
+              {dkimRecord.startsWith("v=DKIM1") ? (
+                <button className="icon-button" title="Copy DKIM TXT value" onClick={copyDkimRecord}>
+                  <Copy size={16} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -463,6 +514,25 @@ function createStrongPassword() {
   window.crypto.getRandomValues(bytes);
   const body = Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
   return `${body}${symbols[bytes[0] % symbols.length]}${bytes[1] % 10}`;
+}
+
+function extractDkimRecord(value: unknown, domain: string) {
+  const text = stringifyOperation(value);
+  const match = text.match(/v=DKIM1[^"\\]+/i);
+  if (match?.[0]) {
+    return match[0].replace(/\\n/g, "").trim();
+  }
+
+  return `DKIM request accepted for ${domain}. Open Domains and refresh DNS records to copy the published TXT value.`;
+}
+
+function stringifyOperation(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
 }
 
 function parseQuarantineItems(value: unknown): QuarantineItem[] {

@@ -49,6 +49,31 @@ export function formatStorage(mb: number) {
   return `${mb} MB`;
 }
 
+export function formatDateTime(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") {
+    return "Not available";
+  }
+
+  const raw = String(value);
+  const numeric = Number(raw);
+  const date =
+    Number.isFinite(numeric) && /^\d+$/.test(raw)
+      ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+      : new Date(raw);
+
+  if (Number.isNaN(date.getTime())) {
+    return raw;
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function usagePercent(usedMb: number, quotaMb: number) {
   if (!Number.isFinite(usedMb) || !Number.isFinite(quotaMb) || quotaMb <= 0) {
     return 0;

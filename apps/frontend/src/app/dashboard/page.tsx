@@ -3,10 +3,11 @@ import { MetricCard } from "@/components/MetricCard";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusNotice } from "@/components/StatusNotice";
 import { apiGetSafe, requirePageSession } from "@/lib/server-api";
-import { domainHealth, usagePercent } from "@/lib/platform-data";
+import { domainHealth, formatDateTime, usagePercent } from "@/lib/platform-data";
 import { getWorkspaceSnapshot } from "@/lib/workspace-server";
 import {
   Activity,
+  AtSign,
   Building2,
   Database,
   Globe2,
@@ -74,10 +75,20 @@ export default async function DashboardPage() {
         title="Workspace Dashboard"
         description="Manage domains, mailboxes, DNS readiness, and workspace health."
         actions={
-          <Link className="button" href="/domains#domain-create">
-            <Plus size={18} />
-            Add domain
-          </Link>
+          <>
+            <Link className="button" href="/domains#domain-create">
+              <Plus size={18} />
+              Add domain
+            </Link>
+            <Link className="button secondary" href="/mailboxes#mailbox-create">
+              <Inbox size={18} />
+              Add mailbox
+            </Link>
+            <Link className="button secondary" href="/aliases">
+              <AtSign size={18} />
+              Create alias
+            </Link>
+          </>
         }
       />
       <StatusNotice errors={loadErrors} />
@@ -241,7 +252,7 @@ export default async function DashboardPage() {
                     {mailbox.status}
                   </span>
                 </td>
-                <td>{String(mailbox.lastLogin ?? "Not available")}</td>
+                <td>{formatDateTime(mailbox.lastLogin)}</td>
               </tr>
             ))}
             {mailboxes.length === 0 ? (

@@ -1,8 +1,8 @@
 "use client";
 
 import { apiDelete, apiPost } from "@/lib/client-api";
-import { Domain, domainHealth } from "@/lib/platform-data";
-import { CheckCircle2, Clock3, Copy, Globe2, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import { Domain, domainHealth, formatDateTime } from "@/lib/platform-data";
+import { CheckCircle2, Clock3, Copy, Globe2, KeyRound, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -43,7 +43,8 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
   }
 
   async function deleteDomain(value: string) {
-    if (!window.confirm(`Delete ${value}?`)) return;
+    const confirmation = window.prompt(`Type DELETE to remove ${value} from this workspace.`);
+    if (confirmation !== "DELETE") return;
 
     setMessage("");
     try {
@@ -63,6 +64,22 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
     } catch {
       setMessage("Could not copy DNS value.");
     }
+  }
+
+  async function generateDkim(value: string) {
+    setMessage("");
+    startTransition(async () => {
+      try {
+        await apiPost(`/api/operations/dkim/${encodeURIComponent(value)}`, {
+          selector: "dkim",
+          keySize: 2048,
+        });
+        setMessage(`DKIM key requested for ${value}. Refresh records to copy the TXT value.`);
+        router.refresh();
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : `Could not generate DKIM for ${value}.`);
+      }
+    });
   }
 
   return (
@@ -128,7 +145,8 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
                   </div>
                   <h2>{item.domain}</h2>
                   <p>
-                    {item.mailboxes ?? 0} mailboxes · Added {String(item.createdAt ?? "recently")}
+                    {item.mailboxes ?? 0} mailboxes · Added{" "}
+                    {item.createdAt ? formatDateTime(item.createdAt) : "recently"}
                   </p>
                 </div>
                 <div className={`domain-status-pill ${health.healthy ? "good" : "warn"}`}>
@@ -148,36 +166,52 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
               </div>
 
               <div className="dns-stack">
-                {(item.records ?? []).map((record) => (
-                  <div className="dns-record" key={`${item.domain}-${record.type}-${record.name}`}>
-                    <div className={`dns-type ${record.status === "verified" ? "good" : "warn"}`}>
-                      {record.type}
-                    </div>
-                    <div className="dns-record-body">
-                      <div className="record-line">
-                        <span className="mono">{record.name}</span>
-                        <span
-                          className={`record-state ${
-                            record.status === "verified" ? "good" : "warn"
-                          }`}
-                        >
-                          {record.status === "verified" ? "Verified" : "Missing"}
-                        </span>
+                {(item.records ?? []).map((record) => {
+                  const needsDkim = record.type === "DKIM" && !record.value.startsWith("v=DKIM1");
+
+                  return (
+                    <div className="dns-record" key={`${item.domain}-${record.type}-${record.name}`}>
+                      <div className={`dns-type ${record.status === "verified" ? "good" : "warn"}`}>
+                        {record.type}
                       </div>
-                      <div className="dns-value">
-                        <span className="mono">{record.value}</span>
-                        <button
-                          className="copy-button"
-                          type="button"
-                          title="Copy DNS value"
-                          onClick={() => void copyRecord(record.value)}
-                        >
-                          <Copy size={15} />
-                        </button>
+                      <div className="dns-record-body">
+                        <div className="record-line">
+                          <span className="mono">{record.name}</span>
+                          <span
+                            className={`record-state ${
+                              record.status === "verified" ? "good" : "warn"
+                            }`}
+                          >
+                            {record.status === "verified" ? "Verified" : "Missing"}
+                          </span>
+                        </div>
+                        <div className="dns-value">
+                          <span className="mono">{record.value}</span>
+                          {needsDkim ? (
+                            <button
+                              className="button secondary dns-inline-action"
+                              disabled={isPending}
+                              type="button"
+                              onClick={() => void generateDkim(item.domain)}
+                            >
+                              <KeyRound size={15} />
+                              Generate DKIM
+                            </button>
+                          ) : (
+                            <button
+                              className="copy-button"
+                              type="button"
+                              title="Copy DNS value"
+                              onClick={() => void copyRecord(record.value)}
+                            >
+                              <Copy size={15} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="domain-actions">

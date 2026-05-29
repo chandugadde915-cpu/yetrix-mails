@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 
 type MailcowMethod = "GET" | "POST";
 type MailcowResponse = Array<{ type?: string; msg?: unknown; log?: unknown }> | unknown;
+const minimumMailboxQuotaMb = 1024;
 
 export interface DomainRecord {
   type: "MX" | "A" | "SPF" | "DKIM" | "DMARC";
@@ -109,7 +110,7 @@ export class MailcowService {
       local_part: localPart,
       domain,
       name: input.name ?? localPart,
-      quota: input.quotaMb ?? 2048,
+      quota: this.mailboxQuota(input.quotaMb),
       password: input.password,
       password2: input.password,
       active: input.active === false ? "0" : "1",
@@ -124,7 +125,7 @@ export class MailcowService {
   async editMailbox(email: string, input: { name?: string; quotaMb?: number; active?: boolean }) {
     const attr: Record<string, string | number> = {};
     if (input.name !== undefined) attr.name = input.name;
-    if (input.quotaMb !== undefined) attr.quota = input.quotaMb;
+    if (input.quotaMb !== undefined) attr.quota = this.mailboxQuota(input.quotaMb);
     if (input.active !== undefined) attr.active = input.active ? "1" : "0";
 
     if (Object.keys(attr).length === 0) {
@@ -404,5 +405,9 @@ export class MailcowService {
     const numeric = Number(value ?? 0);
     if (!Number.isFinite(numeric)) return 0;
     return numeric > 1024 * 1024 ? Math.round(numeric / 1024 / 1024) : numeric;
+  }
+
+  private mailboxQuota(value: number | undefined) {
+    return Math.max(value ?? 2048, minimumMailboxQuotaMb);
   }
 }

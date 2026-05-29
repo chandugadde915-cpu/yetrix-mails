@@ -7,7 +7,7 @@ export class UpdateMailboxDto {
 
   @IsOptional()
   @IsInt()
-  @Min(128)
+  @Min(1024)
   @Max(102400)
   quotaMb?: number;
 

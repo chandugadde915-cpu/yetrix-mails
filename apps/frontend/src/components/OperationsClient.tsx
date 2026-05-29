@@ -1,6 +1,7 @@
 "use client";
 
 import { apiPost } from "@/lib/client-api";
+import { formatDateTime } from "@/lib/platform-data";
 import { Activity, CheckCircle2, KeyRound, Route, ShieldAlert } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
@@ -9,6 +10,18 @@ export interface OperationResult {
   supported: boolean;
   data?: unknown;
   error?: string;
+}
+
+interface DeliveryLogEntry {
+  time: string;
+  severity: "ok" | "attention" | "info" | string;
+  event: string;
+}
+
+interface DeliveryLogGroup {
+  service: string;
+  entries: DeliveryLogEntry[];
+  note?: string;
 }
 
 export interface OperationsSummary {
@@ -35,6 +48,7 @@ export function OperationsClient({
   quarantine: OperationResult | null;
 }) {
   const domains = useMemo(() => routing.domains.map((item) => item.domain), [routing.domains]);
+  const deliveryLogs = useMemo(() => logs.map(toDeliveryLogGroup), [logs]);
   const [selectedDomain, setSelectedDomain] = useState(domains[0] ?? "");
   const [dkimResult, setDkimResult] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -145,11 +159,11 @@ export function OperationsClient({
             <ShieldAlert size={20} />
             <div className="metric">Quarantine</div>
           </div>
-          <pre className="operation-output">
+          <div className="operation-note">
             {quarantine?.supported
-              ? JSON.stringify(quarantine.data, null, 2)
+              ? "Quarantine connection is available. Review and release held messages from Admin Console."
               : "Quarantine data is not available yet."}
-          </pre>
+          </div>
         </div>
       </section>
 
@@ -194,10 +208,32 @@ export function OperationsClient({
           <div className="metric">Delivery Logs</div>
         </div>
         <div className="log-grid">
-          {logs.map((log) => (
-            <div className="log-panel" key={log.label}>
-              <strong>{log.label}</strong>
-              <pre>{log.supported ? JSON.stringify(log.data, null, 2) : "Report is not available yet."}</pre>
+          {deliveryLogs.map((log) => (
+            <div className="log-panel" key={log.service}>
+              <div className="split-row compact">
+                <strong>{log.service}</strong>
+                <span className="badge good">{log.entries.length} events</span>
+              </div>
+              <p>{log.note ?? "Sanitized delivery events for this workspace."}</p>
+              {log.entries.length > 0 ? (
+                <table className="log-table">
+                  <tbody>
+                    {log.entries.map((entry, index) => (
+                      <tr key={`${log.service}-${entry.time}-${index}`}>
+                        <td>{formatDateTime(entry.time)}</td>
+                        <td>
+                          <span className={`badge ${entry.severity === "attention" ? "warn" : "good"}`}>
+                            {entry.severity === "attention" ? "Review" : entry.severity}
+                          </span>
+                        </td>
+                        <td>{entry.event}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="muted-text">No recent delivery events found.</div>
+              )}
             </div>
           ))}
           {logs.length === 0 ? <div className="muted-text">No delivery activity found.</div> : null}
@@ -205,4 +241,32 @@ export function OperationsClient({
       </section>
     </>
   );
+}
+
+function toDeliveryLogGroup(log: OperationResult): DeliveryLogGroup {
+  if (!log.supported) {
+    return {
+      service: log.label,
+      entries: [],
+      note: "Report is not available yet.",
+    };
+  }
+
+  if (isDeliveryLogGroup(log.data)) {
+    return {
+      service: log.data.service || log.label,
+      entries: log.data.entries ?? [],
+      note: log.data.note,
+    };
+  }
+
+  return {
+    service: log.label,
+    entries: [],
+    note: "No sanitized events were returned for this service.",
+  };
+}
+
+function isDeliveryLogGroup(value: unknown): value is DeliveryLogGroup {
+  return Boolean(value && typeof value === "object" && Array.isArray((value as DeliveryLogGroup).entries));
 }

@@ -200,7 +200,7 @@ export class TenancyService {
         domainRow?.id ?? null,
         input.email.toLowerCase(),
         input.name ?? null,
-        input.quotaMb ?? 2048,
+        Math.max(input.quotaMb ?? 2048, 1024),
         input.active !== false,
       ],
     );
@@ -220,7 +220,13 @@ export class TenancyService {
             updated_at = now()
         WHERE workspace_id = $1 AND lower(email) = $2
       `,
-      [id, email.toLowerCase(), input.name ?? null, input.quotaMb ?? null, input.active ?? null],
+      [
+        id,
+        email.toLowerCase(),
+        input.name ?? null,
+        input.quotaMb === undefined ? null : Math.max(input.quotaMb, 1024),
+        input.active ?? null,
+      ],
     );
   }
 

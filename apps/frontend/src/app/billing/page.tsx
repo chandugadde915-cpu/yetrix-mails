@@ -40,6 +40,13 @@ export default async function BillingPage() {
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const usage = billing.data?.usage;
   const limits = billing.data?.limits;
+  const effectiveStorageLimitMb = positiveNumber(
+    limits?.storageMb,
+    usage?.storageLimitMb,
+    storageLimitMb,
+    25 * 1024,
+  );
+  const effectiveStorageAllocatedMb = positiveNumber(usage?.storageLimitMb, storageLimitMb, effectiveStorageLimitMb);
 
   return (
     <AppShell>
@@ -58,7 +65,7 @@ export default async function BillingPage() {
         </div>
         <div className="panel">
           <div className="metric">Allocated storage</div>
-          <div className="value">{formatStorage(usage?.storageLimitMb ?? storageLimitMb)}</div>
+          <div className="value">{formatStorage(effectiveStorageAllocatedMb)}</div>
         </div>
       </section>
 
@@ -113,7 +120,7 @@ export default async function BillingPage() {
             <tr>
               <td>Storage</td>
               <td>{formatStorage(usage?.storageUsedMb ?? storageUsedMb)} used</td>
-              <td>{formatStorage(limits?.storageMb ?? storageLimitMb)}</td>
+              <td>{formatStorage(effectiveStorageLimitMb)}</td>
               <td>
                 <span className={`badge ${billing.data?.overLimit.storage ? "warn" : "good"}`}>
                   {billing.data?.overLimit.storage ? "Over limit" : "Monitored"}
@@ -135,4 +142,14 @@ export default async function BillingPage() {
       </section>
     </AppShell>
   );
+}
+
+function positiveNumber(...values: Array<number | undefined>) {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+
+  return 0;
 }

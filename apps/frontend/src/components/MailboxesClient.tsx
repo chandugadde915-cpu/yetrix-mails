@@ -27,6 +27,7 @@ const quotaPlans = [
   { label: "Executive", value: 10240, detail: "10 GB" },
   { label: "Custom", value: 0, detail: "Manual" },
 ];
+const minimumQuotaMb = 1024;
 
 export function MailboxesClient({
   initialMailboxes,
@@ -50,7 +51,9 @@ export function MailboxesClient({
   );
   const [mailboxes, setMailboxes] = useState(initialMailboxes);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, number>>(() =>
-    Object.fromEntries(initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb ?? 0])),
+    Object.fromEntries(
+      initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb || minimumQuotaMb]),
+    ),
   );
   const [form, setForm] = useState({
     firstName: "",
@@ -65,6 +68,7 @@ export function MailboxesClient({
   });
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
   const activeCount = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const disabledCount = mailboxes.length - activeCount;
@@ -76,11 +80,23 @@ export function MailboxesClient({
   const selectedDomainVerified = domainOptions.some(
     (domain) => domain.domain === form.domain && domain.verified,
   );
+  const visibleMailboxes = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return mailboxes;
+
+    return mailboxes.filter((mailbox) =>
+      [mailbox.address, mailbox.name, mailbox.domain, mailbox.status]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    );
+  }, [mailboxes, search]);
 
   useEffect(() => {
     setMailboxes(initialMailboxes);
     setQuotaDrafts(
-      Object.fromEntries(initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb ?? 0])),
+      Object.fromEntries(
+        initialMailboxes.map((mailbox) => [mailbox.address, mailbox.quotaMb || minimumQuotaMb]),
+      ),
     );
   }, [initialMailboxes]);
 
@@ -98,6 +114,10 @@ export function MailboxesClient({
       setMessage("Verify domain DNS before creating production mailboxes.");
       return;
     }
+    if (!Number.isFinite(form.quotaMb) || form.quotaMb < minimumQuotaMb) {
+      setMessage("Mailbox quota must be at least 1 GB.");
+      return;
+    }
 
     const email = `${form.localPart.trim().toLowerCase()}@${form.domain}`;
     try {
@@ -105,7 +125,7 @@ export function MailboxesClient({
         email,
         name: form.displayName || fullName(form.firstName, form.lastName) || form.localPart,
         password: form.password,
-        quotaMb: form.quotaMb,
+        quotaMb: Math.max(form.quotaMb, minimumQuotaMb),
         active: form.active,
       });
       setMessage(`${email} created. The user can sign in from Mailbox login.`);
@@ -170,6 +190,11 @@ export function MailboxesClient({
   }
 
   async function updateQuota(email: string, quotaMb: number) {
+    if (!Number.isFinite(quotaMb) || quotaMb < minimumQuotaMb) {
+      setMessage("Mailbox quota must be at least 1 GB.");
+      return;
+    }
+
     try {
       await apiPut(`/api/mailboxes/${encodeURIComponent(email)}`, { quotaMb });
       setMailboxes((current) =>
@@ -183,8 +208,19 @@ export function MailboxesClient({
   }
 
   async function resetPassword(email: string) {
+    if (
+      !window.confirm(
+        `Reset password for ${email}? This immediately changes the mailbox login password.`,
+      )
+    ) {
+      return;
+    }
     const password = window.prompt("New password, minimum 10 characters");
     if (!password) return;
+    if (password.length < 10) {
+      setMessage("New password must be at least 10 characters.");
+      return;
+    }
     try {
       await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/password`, { password });
       setMessage(`Password reset for ${email}.`);
@@ -194,6 +230,10 @@ export function MailboxesClient({
   }
 
   async function setActive(email: string, active: boolean) {
+    if (!active && !window.confirm(`Disable ${email}? The user will lose mailbox access.`)) {
+      return;
+    }
+
     try {
       await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/${active ? "enable" : "disable"}`, {});
       setMessage(`${email} ${active ? "enabled" : "disabled"}.`);
@@ -204,12 +244,14 @@ export function MailboxesClient({
   }
 
   async function deleteMailbox(email: string) {
-    if (!window.confirm(`Delete ${email}?`)) return;
+    const confirmation = window.prompt(`Type DELETE to permanently delete ${email}.`);
+    if (confirmation !== "DELETE") return;
 
     try {
       await apiDelete(`/api/mailboxes/${encodeURIComponent(email)}`);
       setMailboxes((current) => current.filter((mailbox) => mailbox.address !== email));
       setMessage(`${email} deleted.`);
+      startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `Could not delete ${email}.`);
     }
@@ -398,7 +440,7 @@ export function MailboxesClient({
                 Quota in MB
                 <input
                   aria-label="Mailbox quota in MB"
-                  min={128}
+                  min={minimumQuotaMb}
                   max={102400}
                   type="number"
                   value={form.quotaMb}
@@ -490,6 +532,14 @@ export function MailboxesClient({
           </div>
           <span className="badge good">{mailboxes.length} total</span>
         </div>
+        <div className="table-toolbar">
+          <input
+            aria-label="Search mailboxes"
+            placeholder="Search mailboxes"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
         <table className="table">
           <thead>
             <tr>
@@ -501,84 +551,100 @@ export function MailboxesClient({
             </tr>
           </thead>
           <tbody>
-            {mailboxes.map((mailbox) => (
-              <tr key={mailbox.address}>
-                <td>{mailbox.address}</td>
-                <td>{mailbox.name}</td>
-                <td>
-                  <div className="quota-cell">
-                    <span>
-                      {formatStorage(mailbox.usedMb ?? 0)} / {formatStorage(mailbox.quotaMb ?? 0)}
-                    </span>
-                    <div className="progress">
-                      <span style={{ width: `${usagePercent(mailbox.usedMb ?? 0, mailbox.quotaMb ?? 1)}%` }} />
+            {visibleMailboxes.map((mailbox) => {
+              const hasQuota = (mailbox.quotaMb ?? 0) >= minimumQuotaMb;
+              const quotaValue = quotaDrafts[mailbox.address] ?? mailbox.quotaMb ?? minimumQuotaMb;
+
+              return (
+                <tr key={mailbox.address}>
+                  <td>{mailbox.address}</td>
+                  <td>{mailbox.name}</td>
+                  <td>
+                    <div className="quota-cell">
+                      <span>
+                        {hasQuota
+                          ? `${formatStorage(mailbox.usedMb ?? 0)} / ${formatStorage(mailbox.quotaMb)}`
+                          : "Quota missing"}
+                      </span>
+                      <div className="progress">
+                        <span style={{ width: `${usagePercent(mailbox.usedMb ?? 0, mailbox.quotaMb ?? 1)}%` }} />
+                      </div>
+                      {!hasQuota ? <span className="badge warn">Set at least 1 GB</span> : null}
+                      <input
+                        aria-label={`Quota for ${mailbox.address}`}
+                        className="quota-input"
+                        min={minimumQuotaMb}
+                        max={102400}
+                        type="number"
+                        value={quotaValue}
+                        onChange={(event) =>
+                          setQuotaDrafts((current) => ({
+                            ...current,
+                            [mailbox.address]: Number(event.target.value),
+                          }))
+                        }
+                      />
                     </div>
-                    <input
-                      aria-label={`Quota for ${mailbox.address}`}
-                      className="quota-input"
-                      min={128}
-                      max={102400}
-                      type="number"
-                      value={quotaDrafts[mailbox.address] ?? mailbox.quotaMb ?? 0}
-                      onChange={(event) =>
-                        setQuotaDrafts((current) => ({
-                          ...current,
-                          [mailbox.address]: Number(event.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                </td>
-                <td>
-                  <span className={`badge ${mailbox.status === "active" ? "good" : "warn"}`}>
-                    {mailbox.status}
-                  </span>
-                </td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="icon-button"
-                      title="Save quota"
-                      onClick={() =>
-                        void updateQuota(
-                          mailbox.address,
-                          quotaDrafts[mailbox.address] ?? mailbox.quotaMb ?? 0,
-                        )
-                      }
-                    >
-                      <Save size={16} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      title="Reset password"
-                      onClick={() => void resetPassword(mailbox.address)}
-                    >
-                      <KeyRound size={16} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      title={mailbox.status === "active" ? "Disable" : "Enable"}
-                      onClick={() => void setActive(mailbox.address, mailbox.status !== "active")}
-                    >
-                      <Power size={16} />
-                    </button>
-                    <a className="icon-button" href="/mail-login" title="Open mailbox login">
-                      <Mail size={16} />
-                    </a>
-                    <button
-                      className="icon-button danger-icon"
-                      title="Delete"
-                      onClick={() => void deleteMailbox(mailbox.address)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {mailboxes.length === 0 ? (
+                  </td>
+                  <td>
+                    <span className={`badge ${mailbox.status === "active" ? "good" : "warn"}`}>
+                      {mailbox.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        aria-label={`Save quota for ${mailbox.address}`}
+                        className="icon-button"
+                        title="Save quota"
+                        onClick={() => void updateQuota(mailbox.address, quotaValue)}
+                      >
+                        <Save size={16} />
+                      </button>
+                      <button
+                        aria-label={`Reset password for ${mailbox.address}`}
+                        className="icon-button"
+                        title="Reset password"
+                        onClick={() => void resetPassword(mailbox.address)}
+                      >
+                        <KeyRound size={16} />
+                      </button>
+                      <button
+                        aria-label={`${mailbox.status === "active" ? "Disable" : "Enable"} ${mailbox.address}`}
+                        className="icon-button"
+                        title={mailbox.status === "active" ? "Disable mailbox" : "Enable mailbox"}
+                        onClick={() => void setActive(mailbox.address, mailbox.status !== "active")}
+                      >
+                        <Power size={16} />
+                      </button>
+                      <a
+                        aria-label="Open mailbox login"
+                        className="icon-button"
+                        href="/mail-login"
+                        title="Open mailbox login"
+                      >
+                        <Mail size={16} />
+                      </a>
+                      <button
+                        aria-label={`Delete ${mailbox.address}`}
+                        className="icon-button danger-icon"
+                        title="Delete mailbox"
+                        onClick={() => void deleteMailbox(mailbox.address)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {visibleMailboxes.length === 0 ? (
               <tr>
-                <td colSpan={5}>No mailboxes yet. Create the first address above.</td>
+                <td colSpan={5}>
+                  {mailboxes.length === 0
+                    ? "No mailboxes yet. Create the first address above."
+                    : "No mailboxes match this search."}
+                </td>
               </tr>
             ) : null}
           </tbody>

@@ -5,7 +5,7 @@ import { StatusNotice } from "@/components/StatusNotice";
 import type { AliasRow } from "@/components/AliasesClient";
 import type { WorkspaceUser } from "@/components/UsersClient";
 import type { Domain, Mailbox } from "@/lib/platform-data";
-import { domainHealth } from "@/lib/platform-data";
+import { domainHealth, formatDateTime } from "@/lib/platform-data";
 import { apiGetSafe, requirePageRole, requirePageSession } from "@/lib/server-api";
 import { AtSign, Building2, Crown, Globe2, Inbox, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
@@ -255,7 +255,7 @@ export default async function SuperadminPage() {
                     {mailbox.status}
                   </span>
                 </td>
-                <td>{String(mailbox.lastLogin ?? "Not available")}</td>
+                <td>{formatDateTime(mailbox.lastLogin)}</td>
               </tr>
             ))}
             {mailboxes.data.length === 0 ? (

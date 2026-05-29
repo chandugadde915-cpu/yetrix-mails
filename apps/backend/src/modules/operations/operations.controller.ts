@@ -139,9 +139,124 @@ export class OperationsController {
       this.mailcow.safeOperation("dovecot", "GET", "/get/logs/dovecot/100"),
       this.mailcow.safeOperation("rspamd", "GET", "/get/logs/rspamd-history/100"),
     ]);
-    return isSuperAdmin(req)
+    const scopedLogs = isSuperAdmin(req)
       ? logs
       : logs.map((log) => this.filterOperationByDomains(log, ownedDomains ?? []));
+
+    return scopedLogs.map((log) => this.sanitizeLogOperation(log));
+  }
+
+  private sanitizeLogOperation(operation: {
+    label: string;
+    supported: boolean;
+    data?: unknown;
+    error?: string;
+  }) {
+    const entries = this.logEntriesFromValue(operation.data)
+      .map((entry) => ({
+        time: this.safeLogTime(entry.time),
+        severity: this.logSeverity(entry.message, entry.severity),
+        event: this.safeLogText(entry.message),
+      }))
+      .filter((entry) => entry.event)
+      .slice(0, 25);
+
+    return {
+      label: operation.label,
+      supported: operation.supported,
+      error: operation.error,
+      data: {
+        service: operation.label,
+        entries,
+        note:
+          entries.length > 0
+            ? "Sanitized delivery events. Network addresses and infrastructure details are hidden."
+            : "No recent delivery events are available for this service.",
+      },
+    };
+  }
+
+  private logEntriesFromValue(value: unknown): Array<{ time?: unknown; severity?: unknown; message: string }> {
+    if (!value) {
+      return [];
+    }
+
+    if (typeof value === "string") {
+      return value
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => ({ message: line }));
+    }
+
+    if (Array.isArray(value)) {
+      return value.flatMap((item) => this.logEntriesFromValue(item));
+    }
+
+    if (typeof value === "object") {
+      const object = value as Record<string, unknown>;
+      const message = object.message ?? object.msg ?? object.log ?? object.event ?? object.text;
+      if (message !== undefined) {
+        return [
+          {
+            time:
+              object.time ??
+              object.timestamp ??
+              object.ts ??
+              object.created ??
+              object.created_at ??
+              object.date,
+            severity: object.level ?? object.severity ?? object.priority,
+            message: String(message),
+          },
+        ];
+      }
+
+      return Object.entries(object).flatMap(([key, item]) =>
+        this.logEntriesFromValue(item).map((entry) => ({ ...entry, time: entry.time ?? key })),
+      );
+    }
+
+    return [{ message: String(value) }];
+  }
+
+  private safeLogTime(value: unknown) {
+    if (value === undefined || value === null || value === "") {
+      return "Recent";
+    }
+
+    const text = String(value);
+    const numeric = Number(text);
+    const date =
+      Number.isFinite(numeric) && /^\d+$/.test(text)
+        ? new Date(numeric < 10_000_000_000 ? numeric * 1000 : numeric)
+        : new Date(text);
+
+    if (Number.isNaN(date.getTime())) {
+      return "Recent";
+    }
+
+    return date.toISOString();
+  }
+
+  private logSeverity(message: string, explicit?: unknown) {
+    const value = String(explicit ?? message).toLowerCase();
+    if (/(fatal|panic|critical|error|reject|failed|denied|timeout|warning|warn)/.test(value)) {
+      return "attention";
+    }
+    if (/(sent|delivered|accepted|ok|success|login)/.test(value)) {
+      return "ok";
+    }
+    return "info";
+  }
+
+  private safeLogText(message: string) {
+    return message
+      .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "[network]")
+      .replace(/\b[0-9a-f:]{2,}:[0-9a-f:]{2,}\b/gi, "[network]")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 280);
   }
 
   private filterOperationByDomains<T extends { data?: unknown }>(operation: T, domains: string[]) {

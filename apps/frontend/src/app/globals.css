@@ -257,6 +257,13 @@ textarea {
   cursor: pointer;
 }
 
+.dns-inline-action {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .danger-icon {
   color: var(--danger);
 }
@@ -265,6 +272,21 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 14px 0;
+}
+
+.table-toolbar input {
+  width: min(340px, 100%);
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #ffffff;
 }
 
 .grid {
@@ -504,6 +526,7 @@ textarea {
   display: grid;
   align-content: center;
   gap: 6px;
+  min-width: 0;
   min-height: 108px;
   padding: 12px;
   border: 1px solid rgba(15, 118, 110, 0.12);
@@ -519,10 +542,14 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
 }
 
 .profile-summary strong {
+  min-width: 0;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -1535,6 +1562,32 @@ textarea {
   font-weight: 900;
 }
 
+.dkim-output {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.dkim-output span {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dkim-output code {
+  min-width: 0;
+  color: #111827;
+  font: 12px/1.5 "SFMono-Regular", Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
 .admin-route-list,
 .quarantine-list {
   display: grid;
@@ -1917,6 +1970,16 @@ textarea {
   white-space: pre-wrap;
 }
 
+.operation-note {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .log-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1926,6 +1989,42 @@ textarea {
 
 .log-panel {
   min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.log-panel p {
+  margin: 10px 0 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.log-table td {
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.log-table td:first-child {
+  width: 116px;
+  color: var(--muted);
+}
+
+.log-table td:nth-child(2) {
+  width: 82px;
+}
+
+.split-row.compact {
+  gap: 10px;
+  align-items: center;
 }
 
 .split-row {
@@ -3281,6 +3380,12 @@ textarea {
 
 .error-box {
   border-color: #fecaca;
+}
+
+.branded-error-page {
+  background:
+    linear-gradient(120deg, rgba(15, 118, 110, 0.12), transparent 30%),
+    #eef4f8;
 }
 
 @keyframes loading-pulse {
