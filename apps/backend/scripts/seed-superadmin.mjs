@@ -41,7 +41,14 @@ if (!workspaceId) {
 if (user) {
   await users.updateOne(
     { id: user.id },
-    { $set: { role: "superadmin", status: "active", updated_at: now } },
+    {
+      $set: {
+        password_hash: hashPassword(password),
+        role: "superadmin",
+        status: "active",
+        updated_at: now,
+      },
+    },
   );
 } else {
   await users.insertOne({
