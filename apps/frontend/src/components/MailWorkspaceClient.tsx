@@ -427,6 +427,32 @@ export function MailWorkspaceClient({
     });
   }
 
+  async function saveDraft() {
+    if (!selected) {
+      setNotice("Choose a mailbox before saving a draft.");
+      return;
+    }
+
+    setNotice("");
+    startTransition(async () => {
+      try {
+        const encodedAttachments = await Promise.all(attachments.map(readAttachment));
+        await post("/api/mail/draft", {
+          from: selected,
+          password,
+          to: compose.to || undefined,
+          subject: compose.subject || undefined,
+          text: compose.text || textFromHtml(compose.html),
+          html: compose.html || undefined,
+          attachments: encodedAttachments,
+        });
+        setNotice("Draft saved.");
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Could not save draft.");
+      }
+    });
+  }
+
   function startReply() {
     if (!activeMessage) return;
     setCompose({
@@ -835,14 +861,25 @@ export function MailWorkspaceClient({
               ))}
             </div>
           ) : null}
-          <button
-            className="button"
-            disabled={!selected || !password || isPending || (!compose.text && !compose.html)}
-            title={smtpDisconnected ? "Sending unavailable" : "Send message"}
-          >
-            <Send size={18} />
-            Send
-          </button>
+          <div className="compose-actions">
+            <button
+              className="button secondary"
+              disabled={!selected || isPending || (!compose.to && !compose.subject && !compose.text && !compose.html)}
+              type="button"
+              onClick={() => void saveDraft()}
+            >
+              <FileText size={18} />
+              Save draft
+            </button>
+            <button
+              className="button"
+              disabled={!selected || !password || isPending || (!compose.text && !compose.html)}
+              title={smtpDisconnected ? "Sending unavailable" : "Send message"}
+            >
+              <Send size={18} />
+              Send
+            </button>
+          </div>
         </form>
       </section>
 

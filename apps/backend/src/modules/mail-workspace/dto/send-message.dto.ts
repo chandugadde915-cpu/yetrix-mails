@@ -47,3 +47,43 @@ export class SendMessageDto {
   @Type(() => MailAttachmentDto)
   attachments?: MailAttachmentDto[];
 }
+
+export class DraftMessageDto {
+  @IsEmail()
+  from!: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
+  @IsEmail()
+  to?: string;
+
+  @IsOptional()
+  @IsString()
+  cc?: string;
+
+  @IsOptional()
+  @IsString()
+  bcc?: string;
+
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  text?: string;
+
+  @IsOptional()
+  @IsString()
+  html?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => MailAttachmentDto)
+  attachments?: MailAttachmentDto[];
+}

@@ -13,6 +13,7 @@ import { ImapFlow } from "imapflow";
 import * as nodemailer from "nodemailer";
 import { basename, join } from "path";
 import { DatabaseService } from "../database/database.service";
+import { ArchiveAttachment, MongoMailService } from "../mongo-mail/mongo-mail.service";
 
 interface SendAttachment {
   filename: string;
@@ -41,6 +42,12 @@ interface ParsedMessageBody {
   attachments: MessageAttachment[];
 }
 
+interface ParsedMessage extends ParsedMessageBody {
+  messageId?: string;
+  inReplyTo?: string;
+  references: string[];
+}
+
 export interface MailContact {
   email: string;
   name?: string;
@@ -65,6 +72,7 @@ export class MailWorkspaceService {
   constructor(
     config: ConfigService,
     private readonly database: DatabaseService,
+    private readonly mongoMail?: MongoMailService,
   ) {
     this.host = config.get<string>("MAIL_CLIENT_HOST", "mail.yetrixtechnologies.com");
     this.imapHost = config.get<string>("MAIL_IMAP_HOST", this.host);
@@ -74,7 +82,10 @@ export class MailWorkspaceService {
     this.smtpPort = this.positiveNumber(config.get<number>("MAIL_SMTP_PORT"), 587);
     this.smtpSecure = this.booleanConfig(config.get<string | boolean>("MAIL_SMTP_SECURE"), false);
     this.smtpRequireTls = this.booleanConfig(config.get<string | boolean>("MAIL_SMTP_REQUIRE_TLS"), true);
-    this.storageDir = config.get<string>("LOCAL_MAIL_STORAGE_DIR", join(process.cwd(), "storage", "sent-attachments"));
+    this.storageDir = config.get<string>(
+      "MAIL_ATTACHMENT_DIR",
+      config.get<string>("LOCAL_MAIL_STORAGE_DIR", join(process.cwd(), "storage", "sent-attachments")),
+    );
   }
 
   async testConnection(input: { email: string; password: string }) {
@@ -107,16 +118,31 @@ export class MailWorkspaceService {
     }
   }
 
-  async listFolders(input: { email: string; password: string }) {
+  async listFolders(input: { email: string; password: string }, workspaceId?: string) {
+    const scope = await this.mailScope(input.email, workspaceId);
     return this.withImap(input, async (client) => {
       const folders = await client.list();
-      return folders.map((folder) => ({
+      const mapped = folders.map((folder) => ({
         path: folder.path,
         name: folder.name,
         listed: folder.listed,
         subscribed: folder.subscribed,
         specialUse: folder.specialUse ?? null,
       }));
+      if (this.mongoMail?.enabled) {
+        const mongoMail = this.mongoMail;
+        await Promise.all(
+          mapped.map((folder) =>
+            mongoMail.recordFolder({
+              workspaceId: scope.workspaceId,
+              mailbox: input.email,
+              path: folder.path,
+              name: folder.name,
+            }),
+          ),
+        );
+      }
+      return mapped;
     });
   }
 
@@ -134,7 +160,31 @@ export class MailWorkspaceService {
     unreadOnly?: boolean;
     flaggedOnly?: boolean;
     attachmentsOnly?: boolean;
-  }) {
+  }, workspaceId?: string) {
+    if (this.mongoMail?.enabled) {
+      const folder = input.folder ?? "INBOX";
+      const scope = await this.mailScope(input.email, workspaceId);
+      await this.syncMailbox(
+        { email: input.email, password: input.password, folder, limit: Math.max(input.limit ?? 40, 40) },
+        workspaceId,
+      );
+      return this.mongoMail.listMessages({
+        workspaceId: scope.workspaceId,
+        mailbox: input.email,
+        folder,
+        search: input.search,
+        from: input.from,
+        to: input.to,
+        subject: input.subject,
+        since: input.since,
+        before: input.before,
+        unreadOnly: input.unreadOnly,
+        flaggedOnly: input.flaggedOnly,
+        attachmentsOnly: input.attachmentsOnly,
+        limit: input.limit ?? 40,
+      });
+    }
+
     const limit = input.limit ?? 20;
     return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       const exists = client.mailbox ? client.mailbox.exists : 0;
@@ -201,7 +251,24 @@ export class MailWorkspaceService {
     });
   }
 
-  async getMessage(input: { email: string; password: string; id: string; folder?: string }) {
+  async getMessage(input: { email: string; password: string; id: string; folder?: string }, workspaceId?: string) {
+    if (this.mongoMail?.enabled && !/^\d+$/.test(input.id)) {
+      const scope = await this.mailScope(input.email, workspaceId);
+      const message = await this.mongoMail.getMessage({
+        workspaceId: scope.workspaceId,
+        mailbox: input.email,
+        id: input.id,
+        includeAttachmentData: true,
+      });
+      await this.mongoMail.markSeen({
+        workspaceId: scope.workspaceId,
+        mailbox: input.email,
+        id: input.id,
+        seen: true,
+      });
+      return { ...message, seen: true };
+    }
+
     return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       const message = await client.fetchOne(
         input.id,
@@ -240,33 +307,50 @@ export class MailWorkspaceService {
     });
   }
 
-  async deleteMessage(input: { email: string; password: string; id: string; folder?: string }) {
+  async deleteMessage(input: { email: string; password: string; id: string; folder?: string }, workspaceId?: string) {
+    const resolved = await this.resolveArchiveMessage(input, workspaceId);
     return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
-      await client.messageDelete(input.id, { uid: true });
+      await client.messageDelete(resolved.uid, { uid: true });
+      if (resolved.archiveId && this.mongoMail?.enabled) {
+        await this.mongoMail.softDeleteMessage({
+          workspaceId: resolved.workspaceId,
+          mailbox: input.email,
+          id: resolved.archiveId,
+        });
+      }
       return {
-        id: input.id,
+        id: resolved.archiveId ?? input.id,
         deleted: true,
       };
     });
   }
 
-  async archiveMessage(input: { email: string; password: string; id: string; folder?: string }) {
-    return this.moveMessage(input, "\\Archive", "Archive");
+  async archiveMessage(input: { email: string; password: string; id: string; folder?: string }, workspaceId?: string) {
+    return this.moveMessage(input, "\\Archive", "Archive", workspaceId);
   }
 
-  async trashMessage(input: { email: string; password: string; id: string; folder?: string }) {
-    return this.moveMessage(input, "\\Trash", "Trash");
+  async trashMessage(input: { email: string; password: string; id: string; folder?: string }, workspaceId?: string) {
+    return this.moveMessage(input, "\\Trash", "Trash", workspaceId);
   }
 
-  async setFlagged(input: { email: string; password: string; id: string; folder?: string }, flagged: boolean) {
+  async setFlagged(input: { email: string; password: string; id: string; folder?: string }, flagged: boolean, workspaceId?: string) {
+    const resolved = await this.resolveArchiveMessage(input, workspaceId);
     return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       if (flagged) {
-        await client.messageFlagsAdd(input.id, ["\\Flagged"], { uid: true });
+        await client.messageFlagsAdd(resolved.uid, ["\\Flagged"], { uid: true });
       } else {
-        await client.messageFlagsRemove(input.id, ["\\Flagged"], { uid: true });
+        await client.messageFlagsRemove(resolved.uid, ["\\Flagged"], { uid: true });
+      }
+      if (resolved.archiveId && this.mongoMail?.enabled) {
+        await this.mongoMail.setFlagged({
+          workspaceId: resolved.workspaceId,
+          mailbox: input.email,
+          id: resolved.archiveId,
+          flagged,
+        });
       }
       return {
-        id: input.id,
+        id: resolved.archiveId ?? input.id,
         flagged,
       };
     });
@@ -305,10 +389,34 @@ export class MailWorkspaceService {
     attachments?: SendAttachment[];
   }, workspaceId?: string) {
     const transport = this.smtpTransport({ email: input.from, password: input.password });
-    const storedAttachments = await this.storeAttachments(input.attachments ?? []);
+    const scope = await this.mailScope(input.from, workspaceId);
+    const mongoMail = this.mongoMail?.enabled ? this.mongoMail : null;
+    const archive = mongoMail
+      ? await mongoMail.createOutgoingQueued({
+          workspaceId: scope.workspaceId,
+          mailbox: input.from,
+          mailboxId: scope.mailboxId,
+          folder: "Sent",
+          from: input.from,
+          to: [input.to],
+          cc: input.cc ? [input.cc] : [],
+          subject: input.subject,
+          text: input.text,
+          html: input.html,
+          attachments: input.attachments ?? [],
+          direction: "outbound",
+          status: "queued",
+          date: new Date(),
+          seen: true,
+        })
+      : null;
+    const storedAttachments = archive?.attachments ?? (await this.storeAttachments(input.attachments ?? []));
 
     let result;
     try {
+      if (archive) {
+        await mongoMail?.updateMessageStatus(archive.id, "sending");
+      }
       result = await transport.sendMail({
         from: input.from,
         to: input.to,
@@ -322,13 +430,24 @@ export class MailWorkspaceService {
           path: attachment.storagePath,
         })),
       });
-    } catch {
+    } catch (error) {
+      if (archive) {
+        await mongoMail?.updateMessageStatus(
+          archive.id,
+          "failed",
+          error instanceof Error ? error.message : "SMTP send failed",
+        );
+      }
       throw new BadGatewayException(SEND_UNAVAILABLE_MESSAGE);
     }
     await this.saveSentCopy(input, storedAttachments).catch(() => undefined);
+    if (archive) {
+      await mongoMail?.updateMessageStatus(archive.id, "sent");
+    }
     await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments);
 
     return {
+      id: archive?.id,
       messageId: result.messageId,
       accepted: result.accepted,
       rejected: result.rejected,
@@ -338,6 +457,223 @@ export class MailWorkspaceService {
         stored: true,
       })),
     };
+  }
+
+  async saveDraft(input: {
+    from: string;
+    to?: string;
+    subject?: string;
+    text?: string;
+    html?: string;
+    cc?: string;
+    bcc?: string;
+    attachments?: SendAttachment[];
+  }, workspaceId?: string) {
+    if (!this.mongoMail?.enabled) {
+      throw new BadGatewayException("MongoDB mail archive is not configured");
+    }
+    const scope = await this.mailScope(input.from, workspaceId);
+    return this.mongoMail.saveDraft({
+      workspaceId: scope.workspaceId,
+      mailbox: input.from,
+      mailboxId: scope.mailboxId,
+      folder: "Drafts",
+      from: input.from,
+      to: input.to ? [input.to] : [],
+      cc: input.cc ? [input.cc] : [],
+      bcc: input.bcc ? [input.bcc] : [],
+      subject: input.subject ?? "(No subject)",
+      text: input.text ?? this.textFromHtml(input.html ?? ""),
+      html: input.html,
+      attachments: input.attachments ?? [],
+      direction: "outbound",
+      status: "draft",
+      date: new Date(),
+      seen: true,
+    });
+  }
+
+  async syncMailbox(input: { email: string; password: string; folder?: string; limit?: number }, workspaceId?: string) {
+    if (!this.mongoMail?.enabled) {
+      return { synced: 0, skipped: true, reason: "MongoDB mail archive is not configured" };
+    }
+
+    const scope = await this.mailScope(input.email, workspaceId);
+    const folders = input.folder ? [input.folder] : ["INBOX", "Sent", "Drafts", "Trash", "Junk"];
+    let synced = 0;
+
+    for (const folder of folders) {
+      synced += await this.syncFolder(input, folder, scope.workspaceId, scope.mailboxId, input.limit ?? 50);
+    }
+
+    return { synced, folders };
+  }
+
+  async listStoredFolder(
+    input: {
+      mailbox: string;
+      folder: string;
+      search?: string;
+      from?: string;
+      to?: string;
+      subject?: string;
+      since?: string;
+      before?: string;
+      unreadOnly?: boolean;
+      flaggedOnly?: boolean;
+      attachmentsOnly?: boolean;
+      limit?: number;
+    },
+    workspaceId?: string,
+  ) {
+    if (!this.mongoMail?.enabled) {
+      throw new BadGatewayException("MongoDB mail archive is not configured");
+    }
+    const scope = await this.mailScope(input.mailbox, workspaceId);
+    return this.mongoMail.listMessages({
+      workspaceId: scope.workspaceId,
+      mailbox: input.mailbox,
+      folder: input.folder,
+      search: input.search,
+      from: input.from,
+      to: input.to,
+      subject: input.subject,
+      since: input.since,
+      before: input.before,
+      unreadOnly: input.unreadOnly,
+      flaggedOnly: input.flaggedOnly,
+      attachmentsOnly: input.attachmentsOnly,
+      limit: input.limit ?? 40,
+    });
+  }
+
+  async getStoredMessage(input: { mailbox: string; id: string }, workspaceId?: string) {
+    if (!this.mongoMail?.enabled) {
+      throw new BadGatewayException("MongoDB mail archive is not configured");
+    }
+    const scope = await this.mailScope(input.mailbox, workspaceId);
+    return this.mongoMail.getMessage({
+      workspaceId: scope.workspaceId,
+      mailbox: input.mailbox,
+      id: input.id,
+      includeAttachmentData: true,
+    });
+  }
+
+  async getStoredAttachment(input: { mailbox?: string; id: string }, workspaceId?: string) {
+    if (!this.mongoMail?.enabled) {
+      throw new BadGatewayException("MongoDB mail archive is not configured");
+    }
+    const scope = input.mailbox
+      ? await this.mailScope(input.mailbox, workspaceId)
+      : { workspaceId: workspaceId ?? null };
+    return this.mongoMail.getAttachment({
+      workspaceId: scope.workspaceId,
+      mailbox: input.mailbox,
+      id: input.id,
+    });
+  }
+
+  private async syncFolder(
+    input: { email: string; password: string },
+    folder: string,
+    workspaceId: string | null,
+    mailboxId: string | null,
+    limit: number,
+  ) {
+    const mongoMail = this.mongoMail;
+    if (!mongoMail?.enabled) {
+      return 0;
+    }
+    return this.withMailbox(input, folder, async (client) => {
+      const exists = client.mailbox ? client.mailbox.exists : 0;
+      if (exists === 0) {
+        await mongoMail.recordFolder({ workspaceId, mailbox: input.email, path: folder, name: folder });
+        return 0;
+      }
+
+      await mongoMail.upsertMailbox({
+        workspaceId,
+        mailbox: input.email,
+        mailboxId,
+        status: "active",
+      });
+      await mongoMail.recordFolder({ workspaceId, mailbox: input.email, path: folder, name: folder });
+
+      let synced = 0;
+      const range = `${Math.max(1, exists - limit + 1)}:*`;
+      for await (const message of client.fetch(range, {
+        envelope: true,
+        flags: true,
+        internalDate: true,
+        source: { maxLength: 18 * 1024 * 1024 },
+        uid: true,
+      })) {
+        const parsed = this.parseMessageSource(message.source, true);
+        await mongoMail.upsertSyncedMessage({
+          workspaceId,
+          mailbox: input.email,
+          mailboxId,
+          folder,
+          uid: message.uid,
+          messageId: parsed.messageId,
+          inReplyTo: parsed.inReplyTo,
+          references: parsed.references,
+          from: this.addressesToString(message.envelope?.from),
+          to: this.addressesToArray(message.envelope?.to),
+          cc: this.addressesToArray(message.envelope?.cc),
+          bcc: this.addressesToArray(message.envelope?.bcc),
+          subject: message.envelope?.subject ?? "(No subject)",
+          text: parsed.text,
+          html: parsed.html,
+          date: message.internalDate ?? new Date(),
+          seen: message.flags?.has("\\Seen") ?? false,
+          flagged: message.flags?.has("\\Flagged") ?? false,
+          status: folder.toLowerCase().includes("sent") ? "sent" : "received",
+          direction: folder.toLowerCase().includes("sent") ? "outbound" : "inbound",
+          attachments: parsed.attachments.map((attachment) => ({
+            filename: attachment.filename,
+            contentType: attachment.contentType,
+            dataBase64: attachment.dataBase64,
+          })),
+          rawPreview: message.source?.toString("utf8", 0, 6000) ?? "",
+        });
+        synced += 1;
+      }
+      return synced;
+    });
+  }
+
+  private async mailScope(email: string, workspaceId?: string) {
+    if (!this.database.enabled) {
+      return { workspaceId: workspaceId ?? null, mailboxId: null };
+    }
+
+    const result = await this.database.query<{ id: string; workspace_id: string }>(
+      "SELECT id, workspace_id FROM mailboxes WHERE lower(email) = $1 LIMIT 1",
+      [email.toLowerCase()],
+    );
+    return {
+      workspaceId: workspaceId ?? result.rows[0]?.workspace_id ?? null,
+      mailboxId: result.rows[0]?.id ?? null,
+    };
+  }
+
+  private async resolveArchiveMessage(
+    input: { email: string; id: string; folder?: string },
+    workspaceId?: string,
+  ) {
+    if (!this.mongoMail?.enabled || /^\d+$/.test(input.id)) {
+      return { uid: input.id, archiveId: null, workspaceId: workspaceId ?? null };
+    }
+    const scope = await this.mailScope(input.email, workspaceId);
+    const message = await this.mongoMail.findMessage({
+      workspaceId: scope.workspaceId,
+      mailbox: input.email,
+      id: input.id,
+    });
+    const uid = typeof message?.uid === "string" ? message.uid : input.id;
+    return { uid, archiveId: input.id, workspaceId: scope.workspaceId };
   }
 
   private async saveSentCopy(input: {
@@ -369,7 +705,9 @@ export class MailWorkspaceService {
     input: { email: string; password: string; id: string; folder?: string },
     specialUse: string,
     fallbackFolder: string,
+    workspaceId?: string,
   ) {
+    const resolved = await this.resolveArchiveMessage(input, workspaceId);
     return this.withMailbox(input, input.folder ?? "INBOX", async (client) => {
       const folders = await client.list();
       const destination =
@@ -381,9 +719,17 @@ export class MailWorkspaceService {
         await client.mailboxCreate(destination).catch(() => undefined);
       }
 
-      await client.messageMove(input.id, destination, { uid: true });
+      await client.messageMove(resolved.uid, destination, { uid: true });
+      if (resolved.archiveId && this.mongoMail?.enabled) {
+        await this.mongoMail.moveMessage({
+          workspaceId: resolved.workspaceId,
+          mailbox: input.email,
+          id: resolved.archiveId,
+          folder: destination,
+        });
+      }
       return {
-        id: input.id,
+        id: resolved.archiveId ?? input.id,
         folder: destination,
         moved: true,
       };
@@ -596,13 +942,23 @@ export class MailWorkspaceService {
     return Object.keys(criteria).length > 0 ? criteria : null;
   }
 
-  private parseMessageSource(source?: Buffer, includeAttachmentData = false): ParsedMessageBody {
+  private parseMessageSource(source?: Buffer, includeAttachmentData = false): ParsedMessage {
     if (!source) {
-      return { text: "", html: "", attachments: [] };
+      return { text: "", html: "", attachments: [], references: [] };
     }
 
-    const parsed: ParsedMessageBody = { text: "", html: "", attachments: [] };
-    this.walkMimePart(source.toString("utf8"), parsed, includeAttachmentData);
+    const raw = source.toString("utf8");
+    const splitAt = raw.search(/\r?\n\r?\n/);
+    const headers = this.parseHeaders(splitAt >= 0 ? raw.slice(0, splitAt) : "");
+    const parsed: ParsedMessage = {
+      text: "",
+      html: "",
+      attachments: [],
+      messageId: headers["message-id"],
+      inReplyTo: headers["in-reply-to"],
+      references: headers.references?.split(/\s+/).filter(Boolean) ?? [],
+    };
+    this.walkMimePart(raw, parsed, includeAttachmentData);
     return {
       ...parsed,
       html: this.sanitizeHtml(parsed.html),
@@ -821,6 +1177,16 @@ export class MailWorkspaceService {
     if (!contacts.has(normalized)) {
       contacts.set(normalized, { email: normalized, name: name || undefined, source });
     }
+  }
+
+  private addressesToArray(addresses: Array<{ address?: string; name?: string }> | undefined) {
+    return (addresses ?? [])
+      .map((item) => item.address?.trim().toLowerCase())
+      .filter((address): address is string => Boolean(address));
+  }
+
+  private addressesToString(addresses: Array<{ address?: string; name?: string }> | undefined) {
+    return this.addressesToArray(addresses).join(", ");
   }
 
   private preview(text: string) {

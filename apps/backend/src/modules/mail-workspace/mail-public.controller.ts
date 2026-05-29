@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post, Res } from "@nestjs/common";
+import { Body, Controller, Get, Post, Res, UnauthorizedException } from "@nestjs/common";
 import { Response } from "express";
 import { ListMessagesDto } from "./dto/list-messages.dto";
 import { MailSessionDto } from "./dto/mail-session.dto";
 import { MessageActionDto } from "./dto/message-action.dto";
-import { SendMessageDto } from "./dto/send-message.dto";
+import { DraftMessageDto, SendMessageDto } from "./dto/send-message.dto";
+import { SyncMailDto } from "./dto/sync-mail.dto";
 import { MailWorkspaceService } from "./mail-workspace.service";
 
 @Controller("public/mail")
@@ -64,6 +65,20 @@ export class MailPublicController {
   @Post("contacts")
   listContacts(@Body() body: MailSessionDto) {
     return this.mailWorkspace.listContacts(body);
+  }
+
+  @Post("draft")
+  async saveDraft(@Body() body: DraftMessageDto) {
+    if (!body.password) {
+      throw new UnauthorizedException("Mailbox email or password is incorrect");
+    }
+    await this.mailWorkspace.testConnection({ email: body.from, password: body.password });
+    return this.mailWorkspace.saveDraft(body);
+  }
+
+  @Post("sync")
+  syncMailbox(@Body() body: SyncMailDto) {
+    return this.mailWorkspace.syncMailbox(body);
   }
 
   @Post("send")

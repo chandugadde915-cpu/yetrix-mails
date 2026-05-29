@@ -21,6 +21,9 @@ PLAN_LIMIT_ALIASES=100
 PLAN_LIMIT_USERS=10
 PLAN_LIMIT_STORAGE_MB=25600
 DATABASE_URL=postgresql://ownmail:ownmail@postgres:5432/ownmail
+MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/yetrix_mails
+MONGODB_DB=yetrix_mails
+MAIL_ATTACHMENT_DIR=/opt/yetrix-mails/uploads/mail-attachments
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=replace_with_a_strong_password
 AUTH_SECRET=replace_with_a_long_random_secret
@@ -58,21 +61,37 @@ GET    /api/aliases
 POST   /api/aliases
 DELETE /api/aliases/:id
 POST   /api/mail/messages
+GET    /api/mail/inbox?mailbox=user@example.com
+GET    /api/mail/sent?mailbox=user@example.com
+GET    /api/mail/drafts?mailbox=user@example.com
+GET    /api/mail/trash?mailbox=user@example.com
+GET    /api/mail/spam?mailbox=user@example.com
+GET    /api/mail/:id?mailbox=user@example.com
 POST   /api/mail/message
 POST   /api/mail/message/archive
 POST   /api/mail/message/trash
 POST   /api/mail/message/delete
 POST   /api/mail/contacts
 POST   /api/mail/send
+POST   /api/mail/draft
+POST   /api/mail/sync
+GET    /api/mail/attachments/:id/download?mailbox=user@example.com
 POST   /public/mail/connection-test
 POST   /public/mail/messages
 POST   /public/mail/message
 POST   /public/mail/send
+POST   /public/mail/draft
+POST   /public/mail/sync
 ```
 
-`POST /api/mail/send` accepts up to five base64 attachments. Sent files are saved under
-`LOCAL_MAIL_STORAGE_DIR` before SMTP delivery and metadata is recorded in `sent_attachments` when
-the database is enabled.
+When `MONGODB_URI` is configured, `POST /api/mail/sync` fetches mail from Mailcow/Dovecot through
+IMAP, stores message metadata and body content in MongoDB, and stores attachment files under
+`MAIL_ATTACHMENT_DIR/{workspaceId}/{mailbox}/{messageId}/`. MongoDB stores attachment metadata and
+local file paths only.
+
+`POST /api/mail/send` saves a MongoDB mail record with `queued`, writes attachments locally, sends
+through Mailcow SMTP, then updates the MongoDB status to `sending`, `sent`, or `failed`. The backend
+also appends a copy to the sender's Sent folder through IMAP.
 
 `/public/mail/*` powers the separate mailbox-user portal. It requires the mailbox email and mailbox
 password, but not an admin dashboard token.
