@@ -1,6 +1,8 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createRequire } from "module";
 
 const keyLength = 64;
+const requirePackage = createRequire(__filename);
 
 export function hashPassword(password: string) {
   const bcrypt = loadBcrypt();
@@ -31,8 +33,7 @@ export function verifyPassword(password: string, stored: string) {
 
 function loadBcrypt(): { hashSync: (value: string, rounds: number) => string; compareSync: (value: string, hash: string) => boolean } | null {
   try {
-    const req = new Function("return require")() as (name: string) => unknown;
-    return req("bcryptjs") as {
+    return requirePackage("bcryptjs") as {
       hashSync: (value: string, rounds: number) => string;
       compareSync: (value: string, hash: string) => boolean;
     };
