@@ -7,10 +7,19 @@ import { MailWorkspaceClient } from "./MailWorkspaceClient";
 
 const sessionKey = "yetrix-mailbox-session";
 
+interface MailConnectionStatus {
+  imap?: boolean;
+  smtp?: boolean;
+  canRead?: boolean;
+  canSend?: boolean;
+  warnings?: string[];
+}
+
 export function MailboxLoginClient() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [readyMailbox, setReadyMailbox] = useState("");
+  const [sessionNotice, setSessionNotice] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -28,8 +37,13 @@ export function MailboxLoginClient() {
     setLoading(true);
 
     try {
-      await apiPostPublic("/api/mail/connection-test", { email, password });
+      const status = await apiPostPublic<MailConnectionStatus>("/api/mail/connection-test", { email, password });
       window.sessionStorage.setItem(sessionKey, email);
+      setSessionNotice(
+        status.canSend === false
+          ? status.warnings?.[0] ?? "Inbox opened. Sending is temporarily unavailable."
+          : "Mailbox opened. Inbox and sending are ready.",
+      );
       setReadyMailbox(email);
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : "Mailbox login failed.");
@@ -65,6 +79,7 @@ export function MailboxLoginClient() {
           publicMode
           initialMailbox={readyMailbox}
           initialPassword={password}
+          initialNotice={sessionNotice}
           mailboxes={[]}
         />
       </main>

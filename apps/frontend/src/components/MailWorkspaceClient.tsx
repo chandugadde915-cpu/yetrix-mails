@@ -86,6 +86,15 @@ interface MailWorkspaceClientProps {
   publicMode?: boolean;
   initialMailbox?: string;
   initialPassword?: string;
+  initialNotice?: string;
+}
+
+interface MailConnectionStatus {
+  imap?: boolean;
+  smtp?: boolean;
+  canRead?: boolean;
+  canSend?: boolean;
+  warnings?: string[];
 }
 
 export function MailWorkspaceClient({
@@ -93,6 +102,7 @@ export function MailWorkspaceClient({
   publicMode = false,
   initialMailbox = "",
   initialPassword = "",
+  initialNotice = "",
 }: MailWorkspaceClientProps) {
   const activeMailboxes = mailboxes.filter((mailbox) => mailbox.status === "active");
   const [selected, setSelected] = useState(
@@ -116,7 +126,7 @@ export function MailWorkspaceClient({
     flaggedOnly: false,
     attachmentsOnly: false,
   });
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(initialNotice);
   const [isPending, startTransition] = useTransition();
   const editorRef = useRef<HTMLDivElement>(null);
   const folderTitle = folders.find((item) => item.path === folder)?.name ?? folder;
@@ -190,8 +200,12 @@ export function MailWorkspaceClient({
     setNotice("");
     startTransition(async () => {
       try {
-        await post("/api/mail/connection-test", { email: selected, password });
-        setNotice("Mailbox login and mail delivery are working.");
+        const status = await post<MailConnectionStatus>("/api/mail/connection-test", { email: selected, password });
+        setNotice(
+          status.canSend === false
+            ? status.warnings?.[0] ?? "Inbox access is working. Sending is temporarily unavailable."
+            : "Mailbox login and mail delivery are working.",
+        );
         void loadFolders();
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Mailbox test failed.");

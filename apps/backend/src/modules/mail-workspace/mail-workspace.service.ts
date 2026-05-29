@@ -50,6 +50,13 @@ export interface MailContact {
 @Injectable()
 export class MailWorkspaceService {
   private readonly host: string;
+  private readonly imapHost: string;
+  private readonly imapPort: number;
+  private readonly imapSecure: boolean;
+  private readonly smtpHost: string;
+  private readonly smtpPort: number;
+  private readonly smtpSecure: boolean;
+  private readonly smtpRequireTls: boolean;
   private readonly storageDir: string;
 
   constructor(
@@ -57,6 +64,13 @@ export class MailWorkspaceService {
     private readonly database: DatabaseService,
   ) {
     this.host = config.get<string>("MAIL_CLIENT_HOST", "mail.yetrixtechnologies.com");
+    this.imapHost = config.get<string>("MAIL_IMAP_HOST", this.host);
+    this.imapPort = this.positiveNumber(config.get<number>("MAIL_IMAP_PORT"), 993);
+    this.imapSecure = this.booleanConfig(config.get<string | boolean>("MAIL_IMAP_SECURE"), true);
+    this.smtpHost = config.get<string>("MAIL_SMTP_HOST", this.host);
+    this.smtpPort = this.positiveNumber(config.get<number>("MAIL_SMTP_PORT"), 587);
+    this.smtpSecure = this.booleanConfig(config.get<string | boolean>("MAIL_SMTP_SECURE"), false);
+    this.smtpRequireTls = this.booleanConfig(config.get<string | boolean>("MAIL_SMTP_REQUIRE_TLS"), true);
     this.storageDir = config.get<string>("LOCAL_MAIL_STORAGE_DIR", join(process.cwd(), "storage", "sent-attachments"));
   }
 
@@ -66,16 +80,21 @@ export class MailWorkspaceService {
     });
 
     const transport = this.smtpTransport(input);
+    let smtp = true;
+    const warnings: string[] = [];
     try {
       await transport.verify();
     } catch (error) {
-      throw this.mailServerException(error, "verify SMTP login");
+      smtp = false;
+      warnings.push(this.publicMailWarning(error, "Sending is temporarily unavailable."));
     }
 
     return {
       imap: true,
-      smtp: true,
-      host: this.host,
+      smtp,
+      canRead: true,
+      canSend: smtp,
+      warnings,
     };
   }
 
@@ -493,9 +512,9 @@ export class MailWorkspaceService {
     task: (client: ImapFlow) => Promise<T>,
   ) {
     const client = new ImapFlow({
-      host: this.host,
-      port: 993,
-      secure: true,
+      host: this.imapHost,
+      port: this.imapPort,
+      secure: this.imapSecure,
       auth: {
         user: input.email,
         pass: input.password,
@@ -522,14 +541,14 @@ export class MailWorkspaceService {
 
   private smtpTransport(input: { email: string; password: string }) {
     return nodemailer.createTransport({
-      host: this.host,
-      port: 587,
-      secure: false,
+      host: this.smtpHost,
+      port: this.smtpPort,
+      secure: this.smtpSecure,
       auth: {
         user: input.email,
         pass: input.password,
       },
-      requireTLS: true,
+      requireTLS: this.smtpRequireTls,
     });
   }
 
@@ -728,10 +747,13 @@ export class MailWorkspaceService {
 
     if (
       lower.includes("authentication") ||
+      lower.includes("authenticationfailed") ||
       lower.includes("auth failed") ||
+      lower.includes("login failed") ||
       lower.includes("invalid login") ||
       lower.includes("invalid credentials") ||
-      lower.includes("535")
+      lower.includes("535") ||
+      (action === "connect to IMAP" && lower.includes("command failed"))
     ) {
       return new UnauthorizedException("Mailbox email or password is incorrect");
     }
@@ -750,6 +772,30 @@ export class MailWorkspaceService {
     }
 
     return new BadGatewayException(`Mail server could not ${action}: ${message}`);
+  }
+
+  private publicMailWarning(error: unknown, fallback: string) {
+    const exception = this.mailServerException(error, "verify SMTP login");
+    if (exception instanceof UnauthorizedException) {
+      return "Sending is not enabled for this mailbox login. Inbox access is available.";
+    }
+
+    return fallback;
+  }
+
+  private positiveNumber(value: number | undefined, fallback: number) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+  }
+
+  private booleanConfig(value: string | boolean | undefined, fallback: boolean) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      return ["1", "true", "yes", "on"].includes(value.toLowerCase());
+    }
+    return fallback;
   }
 
   private addContact(
