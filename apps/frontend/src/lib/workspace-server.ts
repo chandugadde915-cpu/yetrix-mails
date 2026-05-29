@@ -16,6 +16,7 @@ export interface WorkspaceSnapshot {
 export const defaultPlatformStatus: PlatformStatus = {
   api: { healthy: false },
   mailcow: { connected: false },
+  smtp: { connected: false, status: "disconnected" },
 };
 
 export async function getWorkspaceSnapshot(): Promise<WorkspaceSnapshot> {

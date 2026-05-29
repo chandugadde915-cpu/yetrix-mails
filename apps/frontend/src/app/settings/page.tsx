@@ -34,9 +34,11 @@ export default async function SettingsPage() {
     apiGetSafe<{
       api: { healthy: boolean; timestamp?: string };
       mailcow: { connected: boolean; mailcowBaseUrl?: string; error?: string };
+      smtp?: { connected: boolean; status?: string; error?: string };
     }>("/api/status", {
       api: { healthy: false },
       mailcow: { connected: false },
+      smtp: { connected: false, status: "disconnected" },
     }),
     apiGetSafe<WorkspaceSummary | null>("/api/workspace", null),
     apiGetSafe<WorkspaceUser[]>("/api/users", []),
@@ -58,6 +60,8 @@ export default async function SettingsPage() {
   if (!["superadmin", "owner", "admin"].includes(currentRole)) {
     redirect("/dashboard");
   }
+  const smtpConnected = status.data.smtp?.connected ?? status.data.mailcow.connected;
+  const smtpKnownDisconnected = status.data.smtp?.connected === false;
   const settings = {
     security: [
       { label: "Secure admin sessions", enabled: true },
@@ -85,12 +89,18 @@ export default async function SettingsPage() {
             </div>
             <div>
               <span>Mail delivery</span>
-              <strong>{status.data.mailcow.connected ? "Connected" : "Disconnected"}</strong>
+              <strong>{smtpConnected ? "Connected" : "Sending unavailable"}</strong>
             </div>
             <div>
               <span>Access mode</span>
               <strong>Protected</strong>
             </div>
+            {smtpKnownDisconnected ? (
+              <div>
+                <span>Sending status</span>
+                <strong>Sending mail is currently unavailable. Receiving mail still works.</strong>
+              </div>
+            ) : null}
             {status.data.mailcow.error ? (
               <div>
                 <span>Last status</span>

@@ -1,4 +1,5 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, Res } from "@nestjs/common";
+import { Response } from "express";
 import { ListMessagesDto } from "./dto/list-messages.dto";
 import { MailSessionDto } from "./dto/mail-session.dto";
 import { MessageActionDto } from "./dto/message-action.dto";
@@ -12,6 +13,12 @@ export class MailPublicController {
   @Post("connection-test")
   testConnection(@Body() body: MailSessionDto) {
     return this.mailWorkspace.testConnection(body);
+  }
+
+  @Get("smtp-health")
+  async smtpHealth(@Res() response: Response) {
+    const health = await this.mailWorkspace.smtpHealth();
+    return response.status(health.success ? 200 : 503).json(health);
   }
 
   @Post("folders")

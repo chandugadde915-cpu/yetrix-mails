@@ -35,6 +35,7 @@ export interface Mailbox {
 export interface PlatformStatus {
   api?: { healthy: boolean; timestamp?: string };
   mailcow?: { connected: boolean; mailcowBaseUrl?: string; error?: string };
+  smtp?: { connected: boolean; status?: "connected" | "disconnected" | string; error?: string };
 }
 
 export function formatStorage(mb: number) {

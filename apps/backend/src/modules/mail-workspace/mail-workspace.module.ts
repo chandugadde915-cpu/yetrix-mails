@@ -6,5 +6,6 @@ import { MailWorkspaceService } from "./mail-workspace.service";
 @Module({
   controllers: [MailWorkspaceController, MailPublicController],
   providers: [MailWorkspaceService],
+  exports: [MailWorkspaceService],
 })
 export class MailWorkspaceModule {}

@@ -1,4 +1,5 @@
-import { Body, Controller, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, Res } from "@nestjs/common";
+import { Response } from "express";
 import { AuthenticatedRequest } from "../../common/auth.middleware";
 import { isSuperAdmin } from "../../common/rbac";
 import { TenancyService } from "../tenancy/tenancy.service";
@@ -29,6 +30,12 @@ export class MailWorkspaceController {
       await this.tenancy.ensureEmailAccess(req.user?.workspaceId, body.email);
     }
     return this.mailWorkspace.testConnection(body);
+  }
+
+  @Get("smtp-health")
+  async smtpHealth(@Res() response: Response) {
+    const health = await this.mailWorkspace.smtpHealth();
+    return response.status(health.success ? 200 : 503).json(health);
   }
 
   @Post("folders")

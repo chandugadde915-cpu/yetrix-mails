@@ -7,6 +7,14 @@ type Params = {
 };
 
 export async function POST(request: NextRequest, context: Params) {
+  return proxy(request, context);
+}
+
+export async function GET(request: NextRequest, context: Params) {
+  return proxy(request, context);
+}
+
+async function proxy(request: NextRequest, context: Params) {
   const apiUrl = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) {
     return NextResponse.json(
@@ -16,16 +24,17 @@ export async function POST(request: NextRequest, context: Params) {
   }
 
   const { path } = await context.params;
+  const target = path.join("/");
   let response: Response;
   try {
-    response = await fetch(`${apiUrl.replace(/\/$/, "")}/public/mail/${path.join("/")}`, {
-      method: "POST",
+    response = await fetch(`${apiUrl.replace(/\/$/, "")}/public/mail/${target}`, {
+      method: request.method,
       cache: "no-store",
       headers: {
         accept: "application/json",
         "content-type": "application/json",
       },
-      body: await request.text(),
+      body: request.method === "GET" ? undefined : await request.text(),
     });
   } catch (error) {
     return NextResponse.json(
@@ -41,6 +50,15 @@ export async function POST(request: NextRequest, context: Params) {
   }
 
   const text = await response.text();
+  if (target === "smtp-health") {
+    return new NextResponse(text, {
+      status: response.status,
+      headers: {
+        "content-type": response.headers.get("content-type") ?? "application/json",
+      },
+    });
+  }
+
   if (!response.ok) {
     return NextResponse.json(
       { success: false, error: publicErrorMessage(extractError(text)) },

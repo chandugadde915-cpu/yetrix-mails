@@ -92,11 +92,18 @@ interface MailWorkspaceClientProps {
 
 interface MailConnectionStatus {
   imap?: boolean;
-  smtp?: boolean;
   canRead?: boolean;
-  canSend?: boolean;
   warnings?: string[];
 }
+
+interface SmtpHealth {
+  success?: boolean;
+  smtp?: "connected" | "disconnected" | string;
+  error?: string;
+}
+
+const smtpWarningMessage = "Sending mail is currently unavailable. Receiving mail still works.";
+const sendUnavailableMessage = "Unable to send email right now. Please try again later.";
 
 export function MailWorkspaceClient({
   mailboxes,
@@ -129,6 +136,7 @@ export function MailWorkspaceClient({
     attachmentsOnly: false,
   });
   const [notice, setNotice] = useState(initialNotice);
+  const [smtpStatus, setSmtpStatus] = useState<"unknown" | "connected" | "disconnected">("unknown");
   const [isPending, startTransition] = useTransition();
   const editorRef = useRef<HTMLDivElement>(null);
   const folderTitle = folders.find((item) => item.path === folder)?.name ?? folder;
@@ -141,6 +149,11 @@ export function MailWorkspaceClient({
   const draftKey = `yetrix-mail-draft:${publicMode ? "public" : "admin"}:${selected}`;
   const draftMessages = useMemo(() => buildDraftMessages(draftKey, compose), [draftKey, compose]);
   const visibleMessages = isDraftFolder ? draftMessages : messages;
+  const smtpDisconnected = smtpStatus === "disconnected";
+
+  useEffect(() => {
+    void checkSmtpHealth(true);
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(draftKey);
@@ -202,17 +215,38 @@ export function MailWorkspaceClient({
     setNotice("");
     startTransition(async () => {
       try {
-        const status = await post<MailConnectionStatus>("/api/mail/connection-test", { email: selected, password });
+        await post<MailConnectionStatus>("/api/mail/connection-test", { email: selected, password });
         setNotice(
-          status.canSend === false
-            ? status.warnings?.[0] ?? "Inbox access is working. Sending is temporarily unavailable."
-            : "Mailbox login and mail delivery are working.",
+          smtpDisconnected
+            ? smtpWarningMessage
+            : "Mailbox login is working. Inbox access is ready.",
         );
+        void checkSmtpHealth(false);
         void loadFolders();
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Mailbox test failed.");
       }
     });
+  }
+
+  async function checkSmtpHealth(silent: boolean) {
+    try {
+      const response = await fetch("/api/mailbox/smtp-health", {
+        cache: "no-store",
+        headers: { accept: "application/json" },
+      });
+      const payload = (await response.json()) as SmtpHealth;
+      const connected = response.ok && payload.success === true && payload.smtp === "connected";
+      setSmtpStatus(connected ? "connected" : "disconnected");
+      if (!connected && !silent) {
+        setNotice(smtpWarningMessage);
+      }
+    } catch {
+      setSmtpStatus("disconnected");
+      if (!silent) {
+        setNotice(smtpWarningMessage);
+      }
+    }
   }
 
   async function loadFolders() {
@@ -333,6 +367,11 @@ export function MailWorkspaceClient({
   }
 
   async function sendSelfTest() {
+    if (smtpDisconnected) {
+      setNotice(sendUnavailableMessage);
+      return;
+    }
+
     setNotice("");
     startTransition(async () => {
       try {
@@ -345,13 +384,19 @@ export function MailWorkspaceClient({
         });
         setNotice("Self-test sent. Sync inbox to confirm receive.");
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not send self-test.");
+        setNotice(sendErrorMessage(error));
+        void checkSmtpHealth(true);
       }
     });
   }
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (smtpDisconnected) {
+      setNotice(sendUnavailableMessage);
+      return;
+    }
+
     setNotice("");
     startTransition(async () => {
       try {
@@ -376,7 +421,8 @@ export function MailWorkspaceClient({
             : "Message sent.",
         );
       } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Could not send message.");
+        setNotice(sendErrorMessage(error));
+        void checkSmtpHealth(true);
       }
     });
   }
@@ -489,7 +535,7 @@ export function MailWorkspaceClient({
             <button
               className="icon-button"
               disabled={!selected || !password || isPending}
-              title="Send self-test"
+              title={smtpDisconnected ? "Sending unavailable" : "Send self-test"}
               type="button"
               onClick={() => void sendSelfTest()}
             >
@@ -612,6 +658,7 @@ export function MailWorkspaceClient({
           </div>
         </form>
 
+        {smtpDisconnected ? <div className="notice warn-notice">{smtpWarningMessage}</div> : null}
         {notice ? <div className="notice">{notice}</div> : null}
 
         <div className="outlook-message-list">
@@ -791,6 +838,7 @@ export function MailWorkspaceClient({
           <button
             className="button"
             disabled={!selected || !password || isPending || (!compose.text && !compose.html)}
+            title={smtpDisconnected ? "Sending unavailable" : "Send message"}
           >
             <Send size={18} />
             Send
@@ -900,6 +948,18 @@ function escapeHtml(value: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function sendErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (
+    !message ||
+    /unable to send|temporarily unavailable|service unavailable|mailbox service|workspace service/i.test(message)
+  ) {
+    return sendUnavailableMessage;
+  }
+
+  return message;
 }
 
 function initials(value: string) {

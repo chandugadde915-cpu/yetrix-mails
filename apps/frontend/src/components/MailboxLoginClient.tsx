@@ -9,9 +9,7 @@ const sessionKey = "yetrix-mailbox-session";
 
 interface MailConnectionStatus {
   imap?: boolean;
-  smtp?: boolean;
   canRead?: boolean;
-  canSend?: boolean;
   warnings?: string[];
 }
 
@@ -40,9 +38,9 @@ export function MailboxLoginClient() {
       const status = await apiPostPublic<MailConnectionStatus>("/api/mail/connection-test", { email, password });
       window.sessionStorage.setItem(sessionKey, email);
       setSessionNotice(
-        status.canSend === false
-          ? status.warnings?.[0] ?? "Inbox opened. Sending is temporarily unavailable."
-          : "Mailbox opened. Inbox and sending are ready.",
+        status.canRead === false
+          ? status.warnings?.[0] ?? "Mailbox opened."
+          : "Mailbox opened. Inbox is ready.",
       );
       setReadyMailbox(email);
     } catch (loginError) {

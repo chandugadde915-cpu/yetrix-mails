@@ -47,6 +47,9 @@ export interface MailContact {
   source: "sender" | "recipient";
 }
 
+export const SMTP_UNAVAILABLE_MESSAGE = "Sending mail is currently unavailable";
+export const SEND_UNAVAILABLE_MESSAGE = "Unable to send email right now. Please try again later.";
+
 @Injectable()
 export class MailWorkspaceService {
   private readonly host: string;
@@ -79,23 +82,29 @@ export class MailWorkspaceService {
       await client.noop();
     });
 
-    const transport = this.smtpTransport(input);
-    let smtp = true;
-    const warnings: string[] = [];
-    try {
-      await transport.verify();
-    } catch (error) {
-      smtp = false;
-      warnings.push(this.publicMailWarning(error, "Sending is temporarily unavailable."));
-    }
-
     return {
       imap: true,
-      smtp,
       canRead: true,
-      canSend: smtp,
-      warnings,
+      warnings: [],
     };
+  }
+
+  async smtpHealth() {
+    const transport = this.smtpHealthTransport();
+
+    try {
+      await transport.verify();
+      return {
+        success: true as const,
+        smtp: "connected" as const,
+      };
+    } catch {
+      return {
+        success: false as const,
+        smtp: "disconnected" as const,
+        error: SMTP_UNAVAILABLE_MESSAGE,
+      };
+    }
   }
 
   async listFolders(input: { email: string; password: string }) {
@@ -313,8 +322,8 @@ export class MailWorkspaceService {
           path: attachment.storagePath,
         })),
       });
-    } catch (error) {
-      throw this.mailServerException(error, "send mail through SMTP");
+    } catch {
+      throw new BadGatewayException(SEND_UNAVAILABLE_MESSAGE);
     }
     await this.saveSentCopy(input, storedAttachments).catch(() => undefined);
     await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments);
@@ -552,6 +561,15 @@ export class MailWorkspaceService {
     });
   }
 
+  private smtpHealthTransport() {
+    return nodemailer.createTransport({
+      host: this.smtpHost,
+      port: this.smtpPort,
+      secure: this.smtpSecure,
+      requireTLS: this.smtpRequireTls,
+    });
+  }
+
   private buildSearchCriteria(input: {
     search?: string;
     from?: string;
@@ -772,15 +790,6 @@ export class MailWorkspaceService {
     }
 
     return new BadGatewayException(`Mail server could not ${action}: ${message}`);
-  }
-
-  private publicMailWarning(error: unknown, fallback: string) {
-    const exception = this.mailServerException(error, "verify SMTP login");
-    if (exception instanceof UnauthorizedException) {
-      return "Sending is not enabled for this mailbox login. Inbox access is available.";
-    }
-
-    return fallback;
   }
 
   private positiveNumber(value: number | undefined, fallback: number) {
