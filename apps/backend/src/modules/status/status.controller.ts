@@ -22,6 +22,7 @@ export class StatusController {
         connected: smtp.success,
         status: smtp.smtp,
         error: smtp.error,
+        config: this.mailWorkspace.smtpConfigSummary(),
       },
     };
   }

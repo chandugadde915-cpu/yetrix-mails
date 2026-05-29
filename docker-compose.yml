@@ -25,6 +25,8 @@ services:
       MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
       MAIL_SMTP_SECURE: ${MAIL_SMTP_SECURE:-false}
       MAIL_SMTP_REQUIRE_TLS: ${MAIL_SMTP_REQUIRE_TLS:-true}
+      MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
+      MAIL_SMTP_PASS: ${MAIL_SMTP_PASS:-}
       MAIL_ATTACHMENT_DIR: ${MAIL_ATTACHMENT_DIR:-/opt/yetrix-mails/uploads/mail-attachments}
       LOCAL_MAIL_STORAGE_DIR: ${LOCAL_MAIL_STORAGE_DIR:-/app/storage/sent-attachments}
       RATE_LIMIT_PER_WINDOW: ${RATE_LIMIT_PER_WINDOW:-240}

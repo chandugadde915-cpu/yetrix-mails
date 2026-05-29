@@ -3,6 +3,7 @@ import {
   BadRequestException,
   HttpException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -59,6 +60,7 @@ export const SEND_UNAVAILABLE_MESSAGE = "Unable to send email right now. Please 
 
 @Injectable()
 export class MailWorkspaceService {
+  private readonly logger = new Logger(MailWorkspaceService.name);
   private readonly host: string;
   private readonly imapHost: string;
   private readonly imapPort: number;
@@ -67,6 +69,8 @@ export class MailWorkspaceService {
   private readonly smtpPort: number;
   private readonly smtpSecure: boolean;
   private readonly smtpRequireTls: boolean;
+  private readonly smtpUser?: string;
+  private readonly smtpPass?: string;
   private readonly storageDir: string;
 
   constructor(
@@ -82,6 +86,8 @@ export class MailWorkspaceService {
     this.smtpPort = this.positiveNumber(config.get<number>("MAIL_SMTP_PORT"), 587);
     this.smtpSecure = this.booleanConfig(config.get<string | boolean>("MAIL_SMTP_SECURE"), false);
     this.smtpRequireTls = this.booleanConfig(config.get<string | boolean>("MAIL_SMTP_REQUIRE_TLS"), true);
+    this.smtpUser = config.get<string>("MAIL_SMTP_USER")?.trim() || undefined;
+    this.smtpPass = config.get<string>("MAIL_SMTP_PASS") || undefined;
     this.storageDir = config.get<string>(
       "MAIL_ATTACHMENT_DIR",
       config.get<string>("LOCAL_MAIL_STORAGE_DIR", join(process.cwd(), "storage", "sent-attachments")),
@@ -116,6 +122,16 @@ export class MailWorkspaceService {
         error: SMTP_UNAVAILABLE_MESSAGE,
       };
     }
+  }
+
+  smtpConfigSummary() {
+    return {
+      hostConfigured: Boolean(this.smtpHost),
+      portConfigured: Number.isFinite(this.smtpPort) && this.smtpPort > 0,
+      mode: "mailcow-relay" as const,
+      secure: this.smtpSecure,
+      requireTLS: this.smtpRequireTls,
+    };
   }
 
   async listFolders(input: { email: string; password: string }, workspaceId?: string) {
@@ -417,6 +433,7 @@ export class MailWorkspaceService {
       if (archive) {
         await mongoMail?.updateMessageStatus(archive.id, "sending");
       }
+      this.logger.log(`SMTP connection start mode=mailcow-relay from=${input.from}`);
       result = await transport.sendMail({
         from: input.from,
         to: input.to,
@@ -430,7 +447,13 @@ export class MailWorkspaceService {
           path: attachment.storagePath,
         })),
       });
+      this.logger.log(
+        `SMTP success mode=mailcow-relay from=${input.from} messageId=${String(result.messageId ?? "")}`,
+      );
     } catch (error) {
+      this.logger.error(
+        `SMTP failure mode=mailcow-relay from=${input.from}: ${this.errorMessage(error)}`,
+      );
       if (archive) {
         await mongoMail?.updateMessageStatus(
           archive.id,
@@ -440,7 +463,12 @@ export class MailWorkspaceService {
       }
       throw new BadGatewayException(SEND_UNAVAILABLE_MESSAGE);
     }
-    await this.saveSentCopy(input, storedAttachments).catch(() => undefined);
+    try {
+      await this.saveSentCopy(input, storedAttachments);
+      this.logger.log(`IMAP Sent append success from=${input.from}`);
+    } catch (error) {
+      this.logger.warn(`IMAP Sent append failure from=${input.from}: ${this.errorMessage(error)}`);
+    }
     if (archive) {
       await mongoMail?.updateMessageStatus(archive.id, "sent");
     }
@@ -899,21 +927,38 @@ export class MailWorkspaceService {
       host: this.smtpHost,
       port: this.smtpPort,
       secure: this.smtpSecure,
-      auth: {
-        user: input.email,
-        pass: input.password,
-      },
+      auth: this.smtpAuth(input),
       requireTLS: this.smtpRequireTls,
     });
   }
 
   private smtpHealthTransport() {
+    const auth = this.smtpStaticAuth();
     return nodemailer.createTransport({
       host: this.smtpHost,
       port: this.smtpPort,
       secure: this.smtpSecure,
+      ...(auth ? { auth } : {}),
       requireTLS: this.smtpRequireTls,
     });
+  }
+
+  private smtpAuth(input: { email: string; password: string }) {
+    const staticAuth = this.smtpStaticAuth();
+    return staticAuth ?? {
+      user: input.email,
+      pass: input.password,
+    };
+  }
+
+  private smtpStaticAuth() {
+    if (!this.smtpUser || !this.smtpPass) {
+      return null;
+    }
+    return {
+      user: this.smtpUser,
+      pass: this.smtpPass,
+    };
   }
 
   private buildSearchCriteria(input: {
@@ -1161,6 +1206,10 @@ export class MailWorkspaceService {
       return ["1", "true", "yes", "on"].includes(value.toLowerCase());
     }
     return fallback;
+  }
+
+  private errorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
   }
 
   private addContact(
