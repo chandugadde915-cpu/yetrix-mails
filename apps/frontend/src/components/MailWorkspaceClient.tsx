@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiPost, apiPostPublic } from "@/lib/client-api";
 import { Mailbox } from "@/lib/platform-data";
 import {
@@ -114,6 +115,7 @@ export function MailWorkspaceClient({
   const [messages, setMessages] = useState<MailMessage[]>([]);
   const [contacts, setContacts] = useState<MailContact[]>([]);
   const [activeMessage, setActiveMessage] = useState<MailDetail | null>(null);
+  const [messageDeleteDialog, setMessageDeleteDialog] = useState<MailDetail | null>(null);
   const [compose, setCompose] = useState<ComposeState>({ to: "", subject: "", text: "", html: "" });
   const [attachments, setAttachments] = useState<File[]>([]);
   const [filters, setFilters] = useState({
@@ -295,8 +297,22 @@ export function MailWorkspaceClient({
 
   async function moveActiveMessage(action: "archive" | "trash" | "delete") {
     if (!activeMessage) return;
+    if (action === "delete") {
+      setMessageDeleteDialog(activeMessage);
+      return;
+    }
+
+    await commitMessageMove(action, activeMessage);
+  }
+
+  async function confirmDeleteMessage() {
+    if (!messageDeleteDialog) return;
+    await commitMessageMove("delete", messageDeleteDialog);
+    setMessageDeleteDialog(null);
+  }
+
+  async function commitMessageMove(action: "archive" | "trash" | "delete", message: MailDetail) {
     const label = action === "archive" ? "Archive" : action === "trash" ? "Move to trash" : "Delete";
-    if (action === "delete" && !window.confirm("Delete this message from the mailbox?")) return;
 
     setNotice("");
     startTransition(async () => {
@@ -305,9 +321,9 @@ export function MailWorkspaceClient({
           email: selected,
           password,
           folder,
-          id: activeMessage.id,
+          id: message.id,
         });
-        setMessages((current) => current.filter((item) => item.id !== activeMessage.id));
+        setMessages((current) => current.filter((item) => item.id !== message.id));
         setActiveMessage(null);
         setNotice(`${label} completed.`);
       } catch (error) {
@@ -781,6 +797,18 @@ export function MailWorkspaceClient({
           </button>
         </form>
       </section>
+
+      {messageDeleteDialog ? (
+        <ConfirmDialog
+          danger
+          title="Delete message"
+          description={`Permanently delete "${messageDeleteDialog.subject}" from this mailbox?`}
+          confirmLabel="Delete message"
+          disabled={isPending}
+          onCancel={() => setMessageDeleteDialog(null)}
+          onConfirm={() => void confirmDeleteMessage()}
+        />
+      ) : null}
     </section>
   );
 }

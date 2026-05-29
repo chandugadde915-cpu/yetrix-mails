@@ -232,7 +232,81 @@ textarea {
   opacity: 0.62;
 }
 
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.confirm-dialog {
+  width: min(480px, 100%);
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+}
+
+.confirm-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.confirm-dialog-icon.danger {
+  background: #fef3f2;
+  color: var(--danger);
+}
+
+.confirm-dialog h2 {
+  margin: 16px 0 8px;
+  font-size: 22px;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.confirm-dialog-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.confirm-dialog-body label {
+  display: grid;
+  gap: 7px;
+  color: #344054;
+  font-weight: 800;
+}
+
+.confirm-dialog-body input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
 .icon-button {
+  position: relative;
   display: inline-grid;
   place-items: center;
   width: 34px;
@@ -242,6 +316,33 @@ textarea {
   background: #ffffff;
   color: var(--foreground);
   cursor: pointer;
+}
+
+.tooltip-button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 6;
+  width: max-content;
+  max-width: 190px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.tooltip-button:hover::after,
+.tooltip-button:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .copy-button {
@@ -463,7 +564,7 @@ textarea {
 
 .dashboard-profile {
   display: grid;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr);
   gap: 14px;
   align-items: stretch;
 }
@@ -517,7 +618,7 @@ textarea {
 
 .profile-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   padding: 14px;
 }
@@ -543,7 +644,8 @@ textarea {
   font-size: 12px;
   font-weight: 900;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  white-space: nowrap;
   text-transform: uppercase;
 }
 
@@ -554,10 +656,12 @@ textarea {
 }
 
 .profile-quick-actions {
-  display: grid;
-  align-content: center;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  min-width: 184px;
+  min-height: auto;
   padding: 14px;
 }
 

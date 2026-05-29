@@ -1,6 +1,7 @@
 "use client";
 
 import { AliasRow } from "@/components/AliasesClient";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { Domain, domainHealth, Mailbox } from "@/lib/platform-data";
 import {
@@ -76,6 +77,8 @@ export function AdminConsoleClient({
   });
   const [dkimDomain, setDkimDomain] = useState(verifiedDomains[0] ?? domains[0]?.domain ?? "");
   const [dkimRecord, setDkimRecord] = useState("");
+  const [routeDeleteDialog, setRouteDeleteDialog] = useState<{ route: AliasRow; confirmation: string } | null>(null);
+  const [quarantineDeleteDialog, setQuarantineDeleteDialog] = useState<QuarantineItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const classifiedRoutes = routes.map((route) => ({ ...route, type: routeType(route) }));
   const groups = classifiedRoutes.filter((route) => route.type === "Group").length;
@@ -192,22 +195,35 @@ export function AdminConsoleClient({
     });
   }
 
-  function deleteRoute(route: AliasRow) {
-    const confirmation = window.prompt(`Type DELETE to remove route ${route.address}.`);
-    if (confirmation !== "DELETE") return;
+  function confirmDeleteRoute() {
+    if (!routeDeleteDialog || routeDeleteDialog.confirmation !== "DELETE") return;
+    const route = routeDeleteDialog.route;
+
     mutate("Deleting route", async () => {
       await apiDelete(`/api/aliases/${encodeURIComponent(route.id)}`);
       setRoutes((current) => current.filter((item) => item.id !== route.id));
+      setRouteDeleteDialog(null);
     });
   }
 
   function quarantineAction(item: QuarantineItem, action: "release" | "delete" | "learnham" | "learnspam") {
-    if (action === "delete" && !window.confirm(`Delete quarantined message "${item.subject}"?`)) {
+    if (action === "delete") {
+      setQuarantineDeleteDialog(item);
       return;
     }
 
     mutate("Updating quarantine", async () => {
       await apiPost(`/api/operations/quarantine/${encodeURIComponent(item.id)}/${action}`, {});
+      router.refresh();
+    });
+  }
+
+  function confirmDeleteQuarantine() {
+    if (!quarantineDeleteDialog) return;
+    const item = quarantineDeleteDialog;
+    mutate("Deleting quarantine item", async () => {
+      await apiPost(`/api/operations/quarantine/${encodeURIComponent(item.id)}/delete`, {});
+      setQuarantineDeleteDialog(null);
       router.refresh();
     });
   }
@@ -423,10 +439,20 @@ export function AdminConsoleClient({
               <strong>{route.address}</strong>
               <span>{route.goto}</span>
               <span className={`badge ${route.status === "active" ? "good" : "warn"}`}>{route.status}</span>
-              <button className="icon-button" title={route.status === "active" ? "Pause" : "Enable"} onClick={() => toggleRoute(route)}>
+              <button
+                className="icon-button tooltip-button"
+                data-tooltip={route.status === "active" ? "Pause route" : "Enable route"}
+                title={route.status === "active" ? "Pause" : "Enable"}
+                onClick={() => toggleRoute(route)}
+              >
                 <Power size={16} />
               </button>
-              <button className="icon-button danger-icon" title="Delete" onClick={() => deleteRoute(route)}>
+              <button
+                className="icon-button danger-icon tooltip-button"
+                data-tooltip="Delete route"
+                title="Delete"
+                onClick={() => setRouteDeleteDialog({ route, confirmation: "" })}
+              >
                 <Trash2 size={16} />
               </button>
             </div>
@@ -470,6 +496,41 @@ export function AdminConsoleClient({
           {quarantineItems.length === 0 ? <div className="muted-text">No quarantine items found.</div> : null}
         </div>
       </section>
+
+      {routeDeleteDialog ? (
+        <ConfirmDialog
+          danger
+          title="Delete route"
+          description={`This removes ${routeDeleteDialog.route.address}. Type DELETE to confirm.`}
+          confirmLabel="Delete route"
+          disabled={isPending || routeDeleteDialog.confirmation !== "DELETE"}
+          onCancel={() => setRouteDeleteDialog(null)}
+          onConfirm={confirmDeleteRoute}
+        >
+          <label>
+            Confirmation
+            <input
+              autoFocus
+              value={routeDeleteDialog.confirmation}
+              onChange={(event) =>
+                setRouteDeleteDialog({ ...routeDeleteDialog, confirmation: event.target.value })
+              }
+            />
+          </label>
+        </ConfirmDialog>
+      ) : null}
+
+      {quarantineDeleteDialog ? (
+        <ConfirmDialog
+          danger
+          title="Delete held message"
+          description={`Delete quarantined message "${quarantineDeleteDialog.subject}"?`}
+          confirmLabel="Delete message"
+          disabled={isPending}
+          onCancel={() => setQuarantineDeleteDialog(null)}
+          onConfirm={confirmDeleteQuarantine}
+        />
+      ) : null}
     </>
   );
 }

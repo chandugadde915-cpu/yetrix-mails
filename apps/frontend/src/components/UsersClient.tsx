@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { Plus, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState, useTransition } from "react";
@@ -28,6 +29,7 @@ export function UsersClient({
   const [users, setUsers] = useState(initialUsers);
   const [form, setForm] = useState({ email: "", name: "", password: "", role: "admin" });
   const [message, setMessage] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ user: WorkspaceUser; confirmation: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const canManageSuperadmins = currentRole === "superadmin";
   const visibleUsers = canManageSuperadmins
@@ -64,12 +66,15 @@ export function UsersClient({
     }
   }
 
-  async function deleteUser(user: WorkspaceUser) {
-    if (!window.confirm(`Delete ${user.email}?`)) return;
+  async function confirmDeleteUser() {
+    if (!deleteDialog || deleteDialog.confirmation !== "DELETE") return;
+    const user = deleteDialog.user;
+
     setMessage("");
     try {
       await apiDelete(`/api/users/${user.id}`);
       setUsers((current) => current.filter((item) => item.id !== user.id));
+      setDeleteDialog(null);
       setMessage("User deleted.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not delete user.");
@@ -146,16 +151,18 @@ export function UsersClient({
               <td>
                 <div className="table-actions">
                   <button
-                    className="icon-button"
+                    className="icon-button tooltip-button"
+                    data-tooltip={user.status === "active" ? "Disable user" : "Enable user"}
                     title={user.status === "active" ? "Disable user" : "Enable user"}
                     onClick={() => void updateStatus(user, user.status === "active" ? "disabled" : "active")}
                   >
                     <Save size={16} />
                   </button>
                   <button
-                    className="icon-button danger-icon"
+                    className="icon-button danger-icon tooltip-button"
+                    data-tooltip="Delete user"
                     title="Delete user"
-                    onClick={() => void deleteUser(user)}
+                    onClick={() => setDeleteDialog({ user, confirmation: "" })}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -170,6 +177,29 @@ export function UsersClient({
           ) : null}
         </tbody>
       </table>
+
+      {deleteDialog ? (
+        <ConfirmDialog
+          danger
+          title="Delete user"
+          description={`This removes ${deleteDialog.user.email}. Type DELETE to confirm.`}
+          confirmLabel="Delete user"
+          disabled={isPending || deleteDialog.confirmation !== "DELETE"}
+          onCancel={() => setDeleteDialog(null)}
+          onConfirm={() => void confirmDeleteUser()}
+        >
+          <label>
+            Confirmation
+            <input
+              autoFocus
+              value={deleteDialog.confirmation}
+              onChange={(event) =>
+                setDeleteDialog({ ...deleteDialog, confirmation: event.target.value })
+              }
+            />
+          </label>
+        </ConfirmDialog>
+      ) : null}
     </>
   );
 }

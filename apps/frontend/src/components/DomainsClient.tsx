@@ -1,16 +1,26 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiDelete, apiPost } from "@/lib/client-api";
 import { Domain, domainHealth, formatDateTime } from "@/lib/platform-data";
 import { CheckCircle2, Clock3, Copy, Globe2, KeyRound, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+interface OperationResult {
+  label?: string;
+  supported?: boolean;
+  data?: unknown;
+  error?: string;
+}
+
 export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) {
   const router = useRouter();
   const [domains, setDomains] = useState(initialDomains);
   const [domain, setDomain] = useState("");
   const [message, setMessage] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ domain: string; confirmation: string } | null>(null);
+  const [generatedDkimRecords, setGeneratedDkimRecords] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
   const verifiedDomains = domains.filter((item) => domainHealth(item).healthy).length;
   const missingRecords = domains.flatMap((item) =>
@@ -42,15 +52,16 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
     }
   }
 
-  async function deleteDomain(value: string) {
-    const confirmation = window.prompt(`Type DELETE to remove ${value} from this workspace.`);
-    if (confirmation !== "DELETE") return;
+  async function confirmDeleteDomain() {
+    if (!deleteDialog || deleteDialog.confirmation !== "DELETE") return;
 
+    const value = deleteDialog.domain;
     setMessage("");
     try {
       await apiDelete(`/api/domains/${encodeURIComponent(value)}`);
       setDomains((current) => current.filter((item) => item.domain !== value));
       setMessage(`${value} deleted.`);
+      setDeleteDialog(null);
       startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `Could not delete ${value}.`);
@@ -70,11 +81,19 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
     setMessage("");
     startTransition(async () => {
       try {
-        await apiPost(`/api/operations/dkim/${encodeURIComponent(value)}`, {
+        const result = await apiPost<OperationResult>(`/api/operations/dkim/${encodeURIComponent(value)}`, {
           selector: "dkim",
           keySize: 2048,
         });
-        setMessage(`DKIM key requested for ${value}. Refresh records to copy the TXT value.`);
+        const record = extractDkimRecord(result.data);
+        if (record.startsWith("v=DKIM1")) {
+          setGeneratedDkimRecords((current) => ({ ...current, [value]: record }));
+        }
+        setMessage(
+          record.startsWith("v=DKIM1")
+            ? `DKIM TXT value is ready for ${value}. Copy it from this page.`
+            : `DKIM key requested for ${value}. Refresh records to copy the TXT value.`,
+        );
         router.refresh();
       } catch (error) {
         setMessage(error instanceof Error ? error.message : `Could not generate DKIM for ${value}.`);
@@ -167,7 +186,9 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
 
               <div className="dns-stack">
                 {(item.records ?? []).map((record) => {
-                  const needsDkim = record.type === "DKIM" && !record.value.startsWith("v=DKIM1");
+                  const generatedDkim = record.type === "DKIM" ? generatedDkimRecords[item.domain] : undefined;
+                  const displayValue = generatedDkim ?? record.value;
+                  const needsDkim = record.type === "DKIM" && !displayValue.startsWith("v=DKIM1");
 
                   return (
                     <div className="dns-record" key={`${item.domain}-${record.type}-${record.name}`}>
@@ -186,7 +207,9 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
                           </span>
                         </div>
                         <div className="dns-value">
-                          <span className="mono">{record.value}</span>
+                          <span className="mono">
+                            {needsDkim ? "Generate DKIM here, then add the TXT value to DNS." : displayValue}
+                          </span>
                           {needsDkim ? (
                             <button
                               className="button secondary dns-inline-action"
@@ -202,7 +225,7 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
                               className="copy-button"
                               type="button"
                               title="Copy DNS value"
-                              onClick={() => void copyRecord(record.value)}
+                              onClick={() => void copyRecord(displayValue)}
                             >
                               <Copy size={15} />
                             </button>
@@ -222,7 +245,10 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
                   <RefreshCw size={17} />
                   Refresh
                 </button>
-                <button className="button danger" onClick={() => void deleteDomain(item.domain)}>
+                <button
+                  className="button danger"
+                  onClick={() => setDeleteDialog({ domain: item.domain, confirmation: "" })}
+                >
                   <Trash2 size={17} />
                   Delete
                 </button>
@@ -244,6 +270,44 @@ export function DomainsClient({ initialDomains }: { initialDomains: Domain[] }) 
           </article>
         ) : null}
       </section>
+
+      {deleteDialog ? (
+        <ConfirmDialog
+          danger
+          title="Delete domain"
+          description={`This removes ${deleteDialog.domain} from this workspace. Type DELETE to confirm.`}
+          confirmLabel="Delete domain"
+          disabled={isPending || deleteDialog.confirmation !== "DELETE"}
+          onCancel={() => setDeleteDialog(null)}
+          onConfirm={() => void confirmDeleteDomain()}
+        >
+          <label>
+            Confirmation
+            <input
+              autoFocus
+              value={deleteDialog.confirmation}
+              onChange={(event) =>
+                setDeleteDialog({ ...deleteDialog, confirmation: event.target.value })
+              }
+            />
+          </label>
+        </ConfirmDialog>
+      ) : null}
     </>
   );
+}
+
+function extractDkimRecord(value: unknown) {
+  const text = stringifyOperation(value);
+  const match = text.match(/v=DKIM1[^"\\]+/i);
+  return match?.[0]?.replace(/\\n/g, "").trim() ?? "";
+}
+
+function stringifyOperation(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
 }

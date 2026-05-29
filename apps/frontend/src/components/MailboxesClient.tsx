@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { Domain, domainHealth, formatStorage, Mailbox, usagePercent } from "@/lib/platform-data";
 import {
@@ -28,6 +29,12 @@ const quotaPlans = [
   { label: "Custom", value: 0, detail: "Manual" },
 ];
 const minimumQuotaMb = 1024;
+
+type MailboxDialog =
+  | { type: "reset"; email: string; password: string }
+  | { type: "delete"; email: string; confirmation: string }
+  | { type: "disable"; email: string }
+  | null;
 
 export function MailboxesClient({
   initialMailboxes,
@@ -69,6 +76,7 @@ export function MailboxesClient({
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [dialog, setDialog] = useState<MailboxDialog>(null);
   const [isPending, startTransition] = useTransition();
   const activeCount = mailboxes.filter((mailbox) => mailbox.status === "active").length;
   const disabledCount = mailboxes.length - activeCount;
@@ -80,6 +88,7 @@ export function MailboxesClient({
   const selectedDomainVerified = domainOptions.some(
     (domain) => domain.domain === form.domain && domain.verified,
   );
+  const quotaValid = Number.isFinite(form.quotaMb) && form.quotaMb >= minimumQuotaMb;
   const visibleMailboxes = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return mailboxes;
@@ -207,30 +216,38 @@ export function MailboxesClient({
     }
   }
 
-  async function resetPassword(email: string) {
-    if (
-      !window.confirm(
-        `Reset password for ${email}? This immediately changes the mailbox login password.`,
-      )
-    ) {
+  async function copyExistingMailbox(email: string) {
+    try {
+      await navigator.clipboard.writeText(email);
+      setMessage(`${email} copied.`);
+    } catch {
+      setMessage("Could not copy mailbox address.");
+    }
+  }
+
+  async function confirmResetPassword() {
+    if (dialog?.type !== "reset") {
       return;
     }
-    const password = window.prompt("New password, minimum 10 characters");
-    if (!password) return;
-    if (password.length < 10) {
+
+    if (dialog.password.length < 10) {
       setMessage("New password must be at least 10 characters.");
       return;
     }
     try {
-      await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/password`, { password });
-      setMessage(`Password reset for ${email}.`);
+      await apiPost(`/api/mailboxes/${encodeURIComponent(dialog.email)}/password`, {
+        password: dialog.password,
+      });
+      setMessage(`Password reset for ${dialog.email}.`);
+      setDialog(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : `Could not reset ${email}.`);
+      setMessage(error instanceof Error ? error.message : `Could not reset ${dialog.email}.`);
     }
   }
 
   async function setActive(email: string, active: boolean) {
-    if (!active && !window.confirm(`Disable ${email}? The user will lose mailbox access.`)) {
+    if (!active) {
+      setDialog({ type: "disable", email });
       return;
     }
 
@@ -243,14 +260,35 @@ export function MailboxesClient({
     }
   }
 
-  async function deleteMailbox(email: string) {
-    const confirmation = window.prompt(`Type DELETE to permanently delete ${email}.`);
-    if (confirmation !== "DELETE") return;
+  async function confirmDisableMailbox() {
+    if (dialog?.type !== "disable") {
+      return;
+    }
+
+    const email = dialog.email;
+
+    try {
+      await apiPost(`/api/mailboxes/${encodeURIComponent(email)}/disable`, {});
+      setMessage(`${email} disabled.`);
+      setDialog(null);
+      startTransition(() => router.refresh());
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : `Could not update ${email}.`);
+    }
+  }
+
+  async function confirmDeleteMailbox() {
+    if (dialog?.type !== "delete" || dialog.confirmation !== "DELETE") {
+      return;
+    }
+
+    const email = dialog.email;
 
     try {
       await apiDelete(`/api/mailboxes/${encodeURIComponent(email)}`);
       setMailboxes((current) => current.filter((mailbox) => mailbox.address !== email));
       setMessage(`${email} deleted.`);
+      setDialog(null);
       startTransition(() => router.refresh());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : `Could not delete ${email}.`);
@@ -443,12 +481,16 @@ export function MailboxesClient({
                   min={minimumQuotaMb}
                   max={102400}
                   type="number"
+                  step={1}
                   value={form.quotaMb}
                   onChange={(event) =>
                     setForm({ ...form, quotaMb: Number(event.target.value), plan: 0 })
                   }
                 />
               </label>
+              {!quotaValid ? (
+                <div className="form-error">Mailbox quota must be at least 1 GB.</div>
+              ) : null}
             </div>
           </div>
 
@@ -464,7 +506,7 @@ export function MailboxesClient({
           <div className="create-footer">
             <button
               className="button"
-              disabled={isPending || !selectedDomainVerified || !form.localPart || !form.password}
+              disabled={isPending || !selectedDomainVerified || !form.localPart || !form.password || !quotaValid}
             >
               <Plus size={18} />
               Create mailbox
@@ -492,7 +534,7 @@ export function MailboxesClient({
             </div>
             <div>
               <span>Quota</span>
-              <strong>{formatStorage(form.quotaMb)}</strong>
+              <strong>{quotaValid ? formatStorage(form.quotaMb) : "Minimum 1 GB"}</strong>
             </div>
             <div>
               <span>Status</span>
@@ -515,6 +557,10 @@ export function MailboxesClient({
             <div className={form.localPart ? "ready" : ""}>
               <CheckCircle2 size={16} />
               <span>Email address ready</span>
+            </div>
+            <div className={quotaValid ? "ready" : ""}>
+              <CheckCircle2 size={16} />
+              <span>Quota ready</span>
             </div>
           </div>
         </aside>
@@ -594,8 +640,18 @@ export function MailboxesClient({
                   <td>
                     <div className="table-actions">
                       <button
+                        aria-label={`Copy ${mailbox.address}`}
+                        className="icon-button tooltip-button"
+                        data-tooltip="Copy mailbox address"
+                        title="Copy mailbox address"
+                        onClick={() => void copyExistingMailbox(mailbox.address)}
+                      >
+                        <Copy size={16} />
+                      </button>
+                      <button
                         aria-label={`Save quota for ${mailbox.address}`}
-                        className="icon-button"
+                        className="icon-button tooltip-button"
+                        data-tooltip="Save storage quota"
                         title="Save quota"
                         onClick={() => void updateQuota(mailbox.address, quotaValue)}
                       >
@@ -603,15 +659,19 @@ export function MailboxesClient({
                       </button>
                       <button
                         aria-label={`Reset password for ${mailbox.address}`}
-                        className="icon-button"
+                        className="icon-button tooltip-button"
+                        data-tooltip="Reset password"
                         title="Reset password"
-                        onClick={() => void resetPassword(mailbox.address)}
+                        onClick={() =>
+                          setDialog({ type: "reset", email: mailbox.address, password: "" })
+                        }
                       >
                         <KeyRound size={16} />
                       </button>
                       <button
                         aria-label={`${mailbox.status === "active" ? "Disable" : "Enable"} ${mailbox.address}`}
-                        className="icon-button"
+                        className="icon-button tooltip-button"
+                        data-tooltip={mailbox.status === "active" ? "Disable mailbox" : "Enable mailbox"}
                         title={mailbox.status === "active" ? "Disable mailbox" : "Enable mailbox"}
                         onClick={() => void setActive(mailbox.address, mailbox.status !== "active")}
                       >
@@ -619,7 +679,8 @@ export function MailboxesClient({
                       </button>
                       <a
                         aria-label="Open mailbox login"
-                        className="icon-button"
+                        className="icon-button tooltip-button"
+                        data-tooltip="Open mailbox login"
                         href="/mail-login"
                         title="Open mailbox login"
                       >
@@ -627,9 +688,12 @@ export function MailboxesClient({
                       </a>
                       <button
                         aria-label={`Delete ${mailbox.address}`}
-                        className="icon-button danger-icon"
+                        className="icon-button danger-icon tooltip-button"
+                        data-tooltip="Delete mailbox"
                         title="Delete mailbox"
-                        onClick={() => void deleteMailbox(mailbox.address)}
+                        onClick={() =>
+                          setDialog({ type: "delete", email: mailbox.address, confirmation: "" })
+                        }
                       >
                         <Trash2 size={16} />
                       </button>
@@ -650,6 +714,66 @@ export function MailboxesClient({
           </tbody>
         </table>
       </section>
+
+      {dialog?.type === "reset" ? (
+        <ConfirmDialog
+          title="Reset mailbox password"
+          description={`This immediately changes the login password for ${dialog.email}. The mailbox user will need the new password to sign in.`}
+          confirmLabel="Reset password"
+          disabled={isPending || dialog.password.length < 10}
+          onCancel={() => setDialog(null)}
+          onConfirm={() => void confirmResetPassword()}
+        >
+          <label>
+            New password
+            <input
+              autoFocus
+              minLength={10}
+              type="password"
+              value={dialog.password}
+              onChange={(event) =>
+                setDialog({ ...dialog, password: event.target.value })
+              }
+            />
+          </label>
+          <span className="muted-text">Minimum 10 characters.</span>
+        </ConfirmDialog>
+      ) : null}
+
+      {dialog?.type === "disable" ? (
+        <ConfirmDialog
+          danger
+          title="Disable mailbox"
+          description={`Disable ${dialog.email}? The user will lose mailbox login access until you enable it again.`}
+          confirmLabel="Disable mailbox"
+          disabled={isPending}
+          onCancel={() => setDialog(null)}
+          onConfirm={() => void confirmDisableMailbox()}
+        />
+      ) : null}
+
+      {dialog?.type === "delete" ? (
+        <ConfirmDialog
+          danger
+          title="Delete mailbox"
+          description={`This permanently deletes ${dialog.email}. Type DELETE to confirm.`}
+          confirmLabel="Delete mailbox"
+          disabled={isPending || dialog.confirmation !== "DELETE"}
+          onCancel={() => setDialog(null)}
+          onConfirm={() => void confirmDeleteMailbox()}
+        >
+          <label>
+            Confirmation
+            <input
+              autoFocus
+              value={dialog.confirmation}
+              onChange={(event) =>
+                setDialog({ ...dialog, confirmation: event.target.value })
+              }
+            />
+          </label>
+        </ConfirmDialog>
+      ) : null}
     </>
   );
 }

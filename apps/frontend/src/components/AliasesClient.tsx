@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiDelete, apiPost, apiPut } from "@/lib/client-api";
 import { AtSign, Forward, Plus, Power, Route, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useState, useTransition } from "react";
@@ -21,6 +22,7 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
   );
   const [form, setForm] = useState({ address: "", goto: "" });
   const [message, setMessage] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ alias: AliasRow; confirmation: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const activeCount = aliases.filter((alias) => alias.status === "active").length;
 
@@ -41,12 +43,14 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
     }
   }
 
-  async function deleteAlias(id: string) {
-    if (!window.confirm("Delete this alias?")) return;
+  async function confirmDeleteAlias() {
+    if (!deleteDialog || deleteDialog.confirmation !== "DELETE") return;
 
+    const id = deleteDialog.alias.id;
     try {
       await apiDelete(`/api/aliases/${encodeURIComponent(id)}`);
       setAliases((current) => current.filter((alias) => alias.id !== id));
+      setDeleteDialog(null);
       setMessage("Alias deleted.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not delete alias.");
@@ -185,23 +189,26 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
                 <td>
                   <div className="table-actions">
                     <button
-                      className="icon-button"
+                      className="icon-button tooltip-button"
+                      data-tooltip="Save destination"
                       title="Save alias"
                       onClick={() => void updateAlias(alias.id)}
                     >
                       <Save size={16} />
                     </button>
                     <button
-                      className="icon-button"
+                      className="icon-button tooltip-button"
+                      data-tooltip={alias.status === "active" ? "Disable route" : "Enable route"}
                       title={alias.status === "active" ? "Disable alias" : "Enable alias"}
                       onClick={() => void setActive(alias)}
                     >
                       <Power size={16} />
                     </button>
                     <button
-                      className="icon-button danger-icon"
+                      className="icon-button danger-icon tooltip-button"
+                      data-tooltip="Delete alias"
                       title="Delete alias"
-                      onClick={() => void deleteAlias(alias.id)}
+                      onClick={() => setDeleteDialog({ alias, confirmation: "" })}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -217,6 +224,29 @@ export function AliasesClient({ initialAliases }: { initialAliases: AliasRow[] }
           </tbody>
         </table>
       </section>
+
+      {deleteDialog ? (
+        <ConfirmDialog
+          danger
+          title="Delete alias route"
+          description={`This removes ${deleteDialog.alias.address}. Type DELETE to confirm.`}
+          confirmLabel="Delete route"
+          disabled={isPending || deleteDialog.confirmation !== "DELETE"}
+          onCancel={() => setDeleteDialog(null)}
+          onConfirm={() => void confirmDeleteAlias()}
+        >
+          <label>
+            Confirmation
+            <input
+              autoFocus
+              value={deleteDialog.confirmation}
+              onChange={(event) =>
+                setDeleteDialog({ ...deleteDialog, confirmation: event.target.value })
+              }
+            />
+          </label>
+        </ConfirmDialog>
+      ) : null}
     </>
   );
 }
