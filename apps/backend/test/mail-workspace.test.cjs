@@ -78,6 +78,18 @@ test("smtp health reports connected and disconnected without config details", as
   });
 });
 
+test("nodemailer transport factories initialize in the compiled runtime", () => {
+  const service = createService();
+  const smtpTransport = service.smtpTransport({
+    email: "user@example.com",
+    password: "correct-password",
+  });
+  const smtpHealthTransport = service.smtpHealthTransport();
+
+  assert.equal(typeof smtpTransport.sendMail, "function");
+  assert.equal(typeof smtpHealthTransport.verify, "function");
+});
+
 test("wrong IMAP credentials keep the exact mailbox auth error", () => {
   const service = createService();
   const error = service.mailServerException(

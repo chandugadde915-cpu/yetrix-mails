@@ -10,7 +10,7 @@ import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
 import { ImapFlow } from "imapflow";
-import nodemailer from "nodemailer";
+import * as nodemailer from "nodemailer";
 import { basename, join } from "path";
 import { DatabaseService } from "../database/database.service";
 

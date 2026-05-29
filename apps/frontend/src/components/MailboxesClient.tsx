@@ -600,6 +600,7 @@ export function MailboxesClient({
             {visibleMailboxes.map((mailbox) => {
               const hasQuota = (mailbox.quotaMb ?? 0) >= minimumQuotaMb;
               const quotaValue = quotaDrafts[mailbox.address] ?? mailbox.quotaMb ?? minimumQuotaMb;
+              const quotaDraftReady = quotaValue >= minimumQuotaMb;
 
               return (
                 <tr key={mailbox.address}>
@@ -610,12 +611,18 @@ export function MailboxesClient({
                       <span>
                         {hasQuota
                           ? `${formatStorage(mailbox.usedMb ?? 0)} / ${formatStorage(mailbox.quotaMb)}`
-                          : "Quota missing"}
+                          : quotaDraftReady
+                            ? `Quota not saved. Draft: ${formatStorage(quotaValue)}`
+                            : "Quota missing"}
                       </span>
                       <div className="progress">
                         <span style={{ width: `${usagePercent(mailbox.usedMb ?? 0, mailbox.quotaMb ?? 1)}%` }} />
                       </div>
-                      {!hasQuota ? <span className="badge warn">Set at least 1 GB</span> : null}
+                      {!hasQuota ? (
+                        <span className="badge warn">
+                          {quotaDraftReady ? "Save quota to apply" : "Set at least 1 GB"}
+                        </span>
+                      ) : null}
                       <input
                         aria-label={`Quota for ${mailbox.address}`}
                         className="quota-input"

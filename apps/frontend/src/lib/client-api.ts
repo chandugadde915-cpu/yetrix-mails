@@ -56,10 +56,11 @@ async function apiRequest<T>(
   };
 
   const missingSession =
-    response.status === 401 ||
-    (typeof payload.error === "string" &&
-      ((response.status === 503 && payload.error.toLowerCase().includes("workspace context")) ||
-        (response.status === 403 && payload.error.toLowerCase().includes("workspace setup"))));
+    !options.publicMailbox &&
+    (response.status === 401 ||
+      (typeof payload.error === "string" &&
+        ((response.status === 503 && payload.error.toLowerCase().includes("workspace context")) ||
+          (response.status === 403 && payload.error.toLowerCase().includes("workspace setup")))));
 
   if (missingSession && typeof window !== "undefined") {
     const target = response.status === 401 ? "/login?session=expired" : "/workspace-setup";
