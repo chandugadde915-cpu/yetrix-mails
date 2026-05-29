@@ -28,10 +28,7 @@ export class AuditService {
     this.events.splice(100);
 
     if (this.database.enabled && workspaceId) {
-      await this.database.query(
-        "INSERT INTO audit_events(workspace_id, actor, action, target) VALUES ($1, $2, $3, $4)",
-        [workspaceId, actor ?? "admin", action, target],
-      );
+      await this.database.recordAudit({ workspaceId, actor: actor ?? "admin", action, target });
     }
 
     return event;
@@ -39,21 +36,8 @@ export class AuditService {
 
   async list(workspaceId?: string, includeAll = false) {
     if (this.database.enabled && includeAll) {
-      const result = await this.database.query<{
-        id: string;
-        action: string;
-        target: string;
-        actor: string;
-        created_at: string;
-      }>(
-        `
-          SELECT id, action, target, actor, created_at
-          FROM audit_events
-          ORDER BY created_at DESC
-          LIMIT 250
-        `,
-      );
-      return result.rows.map((row) => ({
+      const rows = await this.database.listAudit(null, 250);
+      return rows.map((row) => ({
         id: row.id,
         action: row.action,
         target: row.target,
@@ -63,23 +47,8 @@ export class AuditService {
     }
 
     if (this.database.enabled && workspaceId) {
-      const result = await this.database.query<{
-        id: string;
-        action: string;
-        target: string;
-        actor: string;
-        created_at: string;
-      }>(
-        `
-          SELECT id, action, target, actor, created_at
-          FROM audit_events
-          WHERE workspace_id = $1
-          ORDER BY created_at DESC
-          LIMIT 100
-        `,
-        [workspaceId],
-      );
-      return result.rows.map((row) => ({
+      const rows = await this.database.listAudit(workspaceId, 100);
+      return rows.map((row) => ({
         id: row.id,
         action: row.action,
         target: row.target,

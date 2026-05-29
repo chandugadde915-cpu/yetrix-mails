@@ -82,7 +82,7 @@ Create body:
 }
 ```
 
-DNS verification persists `dns_checks`, updates `domains.status`, and checks required MX, A, SPF,
+DNS verification persists `dns_records`, updates `domains.status`, and checks required MX, A, SPF,
 DKIM, and DMARC records. Mailbox creation is blocked until the mailbox domain is verified.
 
 ## Mailboxes
@@ -257,7 +257,7 @@ Send body:
 ```
 
 Attachments are limited to five files per send request. The backend stores sent files in
-`LOCAL_MAIL_STORAGE_DIR` and records metadata in `sent_attachments` when the database is enabled.
+`LOCAL_MAIL_STORAGE_DIR` and records metadata in MongoDB `attachments` when MongoDB is enabled.
 
 ## Billing Usage
 

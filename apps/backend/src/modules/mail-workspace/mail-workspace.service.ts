@@ -98,6 +98,11 @@ export class MailWorkspaceService {
     await this.withImap(input, async (client) => {
       await client.noop();
     });
+    if (this.database.enabled) {
+      await this.database.saveMailboxCredential(input.email, input.password).catch((error) => {
+        this.logger.warn(`Mailbox credential was not stored for ${input.email}: ${this.errorMessage(error)}`);
+      });
+    }
 
     return {
       imap: true,
@@ -531,7 +536,27 @@ export class MailWorkspaceService {
     let synced = 0;
 
     for (const folder of folders) {
-      synced += await this.syncFolder(input, folder, scope.workspaceId, scope.mailboxId, input.limit ?? 50);
+      try {
+        const folderSynced = await this.syncFolder(input, folder, scope.workspaceId, scope.mailboxId, input.limit ?? 50);
+        synced += folderSynced;
+        await this.mongoMail.recordSyncLog({
+          workspaceId: scope.workspaceId,
+          mailbox: input.email,
+          folder,
+          status: "success",
+          synced: folderSynced,
+        });
+      } catch (error) {
+        await this.mongoMail.recordSyncLog({
+          workspaceId: scope.workspaceId,
+          mailbox: input.email,
+          folder,
+          status: "failed",
+          synced: 0,
+          error: this.errorMessage(error),
+        });
+        throw error;
+      }
     }
 
     return { synced, folders };
@@ -677,13 +702,10 @@ export class MailWorkspaceService {
       return { workspaceId: workspaceId ?? null, mailboxId: null };
     }
 
-    const result = await this.database.query<{ id: string; workspace_id: string }>(
-      "SELECT id, workspace_id FROM mailboxes WHERE lower(email) = $1 LIMIT 1",
-      [email.toLowerCase()],
-    );
+    const mailbox = await this.database.findMailboxByEmail(email);
     return {
-      workspaceId: workspaceId ?? result.rows[0]?.workspace_id ?? null,
-      mailboxId: result.rows[0]?.id ?? null,
+      workspaceId: workspaceId ?? mailbox?.workspace_id ?? null,
+      mailboxId: mailbox?.id ?? null,
     };
   }
 
@@ -854,24 +876,16 @@ export class MailWorkspaceService {
     }
 
     for (const attachment of attachments) {
-      await this.database.query(
-        `
-          INSERT INTO sent_attachments(
-            workspace_id, mailbox, recipient, filename, content_type, size_bytes, storage_path, message_id
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        `,
-        [
-          workspaceId ?? null,
-          input.from.toLowerCase(),
-          input.to.toLowerCase(),
-          attachment.filename,
-          attachment.contentType ?? null,
-          attachment.sizeBytes,
-          attachment.storagePath,
-          messageId,
-        ],
-      );
+      await this.database.recordSentAttachment({
+        workspaceId: workspaceId ?? null,
+        mailbox: input.from,
+        recipient: input.to,
+        filename: attachment.filename,
+        contentType: attachment.contentType,
+        sizeBytes: attachment.sizeBytes,
+        storagePath: attachment.storagePath,
+        messageId,
+      });
     }
   }
 

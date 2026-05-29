@@ -7,7 +7,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { createHmac, timingSafeEqual } from "crypto";
 import { hashPassword, verifyPassword } from "../../common/password";
-import { DatabaseService } from "../database/database.service";
+import { DatabaseService, UserRow } from "../database/database.service";
 import { SignupDto } from "./dto/signup.dto";
 
 interface TokenPayload {
@@ -16,17 +16,6 @@ interface TokenPayload {
   workspaceId?: string;
   role: string;
   exp: number;
-}
-
-interface UserRow {
-  id: string;
-  workspace_id: string;
-  username: string | null;
-  email: string;
-  name: string | null;
-  password_hash: string;
-  role: string;
-  status: string;
 }
 
 @Injectable()
@@ -56,18 +45,9 @@ export class AuthService {
     if (this.database.enabled) {
       await this.ensureBootstrapUser();
       const normalized = username.trim().toLowerCase();
-      const result = await this.database.query<UserRow>(
-        `
-          SELECT id, workspace_id, username, email, name, password_hash, role, status
-          FROM users
-          WHERE lower(email) = $1 OR lower(username) = $1
-          LIMIT 1
-        `,
-        [normalized],
-      );
-      const user = result.rows[0];
+      const user = await this.database.findUserByLogin(normalized);
 
-      if (!user || user.status !== "active" || !verifyPassword(password, user.password_hash)) {
+      if (!user || user.status !== "active" || !user.password_hash || !verifyPassword(password, user.password_hash)) {
         throw new UnauthorizedException("Invalid username or password");
       }
 
@@ -95,37 +75,26 @@ export class AuthService {
     }
 
     if (!this.database.enabled) {
-      throw new ServiceUnavailableException("DATABASE_URL must be configured for signup");
+      throw new ServiceUnavailableException("MONGODB_URI must be configured for signup");
     }
 
     const email = input.email.trim().toLowerCase();
-    const existing = await this.database.query("SELECT id FROM users WHERE lower(email) = $1", [
-      email,
-    ]);
-    if (existing.rowCount) {
+    const existing = await this.database.findUserByEmail(email);
+    if (existing) {
       throw new ConflictException("A user with this email already exists");
     }
 
-    const workspace = await this.database.query<{ id: string }>(
-      "INSERT INTO workspaces(name, status) VALUES ($1, 'pending') RETURNING id",
-      [input.workspaceName.trim()],
-    );
-    const user = await this.database.query<UserRow>(
-      `
-        INSERT INTO users(workspace_id, username, email, name, password_hash, role)
-        VALUES ($1, $2, $3, $4, $5, 'admin')
-        RETURNING id, workspace_id, username, email, name, password_hash, role, status
-      `,
-      [
-        workspace.rows[0].id,
-        email.split("@")[0],
-        email,
-        input.name.trim(),
-        hashPassword(input.password),
-      ],
-    );
+    const workspace = await this.database.createWorkspace(input.workspaceName.trim(), "pending");
+    const user = await this.database.createUser({
+      workspaceId: workspace.id,
+      username: email.split("@")[0],
+      email,
+      name: input.name.trim(),
+      passwordHash: hashPassword(input.password),
+      role: "admin",
+    });
 
-    return this.createSession(user.rows[0]);
+    return this.createSession(user);
   }
 
   verifyToken(token: string) {
@@ -194,51 +163,29 @@ export class AuthService {
     const email = username.includes("@") ? username : `${username}@${mailDomain}`;
     const workspaceName = this.config.get<string>("BOOTSTRAP_WORKSPACE_NAME", "Yetrix Mails");
     const bootstrapRole = this.config.get<string>("BOOTSTRAP_ADMIN_ROLE", "superadmin");
-    const workspace = await this.database.query<{ id: string }>(
-      `
-        INSERT INTO workspaces(name)
-        SELECT $1
-        WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(email) = $2 OR lower(username) = $3)
-        RETURNING id
-      `,
-      [workspaceName, email, username],
-    );
-    const existing = await this.database.query<{ workspace_id: string }>(
-      "SELECT workspace_id FROM users WHERE lower(email) = $1 OR lower(username) = $2 LIMIT 1",
-      [email, username],
-    );
-    const workspaceId = existing.rows[0]?.workspace_id ?? workspace.rows[0]?.id;
+    const existing = await this.database.findUserByLogin(email) ?? await this.database.findUserByLogin(username);
+    const workspace = existing?.workspace_id
+      ? null
+      : await this.database.createWorkspace(workspaceName, "active");
+    const workspaceId = existing?.workspace_id ?? workspace?.id;
 
-    if (existing.rowCount) {
-      await this.database.query(
-        `
-          UPDATE users
-          SET role = $3, status = 'active', updated_at = now()
-          WHERE lower(email) = $1 OR lower(username) = $2
-        `,
-        [email, username, bootstrapRole],
-      );
+    if (existing) {
+      await this.database.updateUser(existing.id, { role: bootstrapRole, status: "active" });
       return;
     }
 
     if (!workspaceId) return;
 
-    await this.database.query(
-      `
-        INSERT INTO users(workspace_id, username, email, name, password_hash, role)
-        VALUES ($1, $2, $3, 'Admin', $4, $5)
-      `,
-      [workspaceId, username, email, hashPassword(this.password), bootstrapRole],
-    );
+    await this.database.createUser({
+      workspaceId,
+      username,
+      email,
+      name: "Admin",
+      passwordHash: hashPassword(this.password),
+      role: bootstrapRole,
+    });
 
-    await this.database.query(
-      `
-        INSERT INTO domains(workspace_id, domain, status)
-        VALUES ($1, $2, 'pending_dns')
-        ON CONFLICT (domain) DO NOTHING
-      `,
-      [workspaceId, mailDomain],
-    );
+    await this.database.recordDomain(workspaceId, mailDomain, "pending_dns");
   }
 
   private configDomain() {

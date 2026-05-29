@@ -106,6 +106,11 @@ export class DomainsController {
 
   @Get(":domain/dns-status")
   async getDnsStatus(@Req() req: AuthenticatedRequest, @Param("domain") domain: string) {
+    return this.checkDns(req, domain);
+  }
+
+  @Post(":domain/check-dns")
+  async checkDns(@Req() req: AuthenticatedRequest, @Param("domain") domain: string) {
     if (!isSuperAdmin(req)) {
       await this.tenancy.ensureDomainAccess(req.user?.workspaceId, domain);
     }

@@ -105,7 +105,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
 
   constructor(config: ConfigService) {
     this.uri = config.get<string>("MONGODB_URI");
-    this.dbName = config.get<string>("MONGODB_DB", "yetrix_mails");
+    this.dbName = config.get<string>("MONGODB_DB", "yetrix_mail");
     this.attachmentRoot = resolve(
       config.get<string>(
         "MAIL_ATTACHMENT_DIR",
@@ -172,7 +172,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
   }
 
   async recordFolder(input: { workspaceId?: string | null; mailbox: string; path: string; name: string }) {
-    const collection = this.collection("mail_folders");
+    const collection = this.collection("folders");
     const now = new Date();
     await collection.updateOne(
       {
@@ -206,7 +206,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
     const doc = this.messageDocument(input, id, attachments, now);
 
-    await this.collection("mail_messages").updateOne(
+    await this.collection("messages").updateOne(
       {
         workspaceId: input.workspaceId ?? null,
         mailbox: input.mailbox.toLowerCase(),
@@ -227,6 +227,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
     );
 
     await this.persistAttachmentMetadata(input.workspaceId ?? null, input.mailbox, id, attachments);
+    await this.persistConversation(input, id, now);
     return id;
   }
 
@@ -252,7 +253,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       now,
     );
 
-    await this.collection("mail_messages").insertOne({
+    await this.collection("messages").insertOne({
       ...doc,
       id,
       createdAt: now,
@@ -260,6 +261,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       queuedAt: now,
     });
     await this.persistAttachmentMetadata(input.workspaceId ?? null, input.mailbox, id, attachments);
+    await this.persistConversation(input, id, now);
     return { id, attachments };
   }
 
@@ -284,13 +286,14 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       attachments,
       now,
     );
-    await this.collection("mail_messages").insertOne({
+    await this.collection("messages").insertOne({
       ...doc,
       id,
       createdAt: now,
       updatedAt: now,
     });
     await this.persistAttachmentMetadata(input.workspaceId ?? null, input.mailbox, id, attachments);
+    await this.persistConversation(input, id, now);
     return { id, attachments };
   }
 
@@ -304,7 +307,30 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
     if (status === "sent") fields.sentAt = now;
     if (status === "failed") fields.failedAt = now;
     if (error !== undefined) fields.error = error;
-    await this.collection("mail_messages").updateOne({ id }, { $set: fields });
+    await this.collection("messages").updateOne({ id }, { $set: fields });
+  }
+
+  async recordSyncLog(input: {
+    workspaceId?: string | null;
+    mailbox: string;
+    folder: string;
+    status: "success" | "failed";
+    synced: number;
+    error?: string;
+  }) {
+    const now = new Date();
+    await this.collection("mail_sync_logs").insertOne({
+      id: randomUUID(),
+      workspace_id: input.workspaceId ?? null,
+      workspaceId: input.workspaceId ?? null,
+      mailbox: input.mailbox.toLowerCase(),
+      folder: input.folder,
+      status: input.status,
+      synced: input.synced,
+      error: input.error ?? null,
+      created_at: now.toISOString(),
+      createdAt: now,
+    });
   }
 
   async listMessages(filter: MailListFilter) {
@@ -330,7 +356,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       query.$or = [{ subject: pattern }, { from: pattern }, { text: pattern }, { html: pattern }];
     }
 
-    const rows = await this.collection("mail_messages")
+    const rows = await this.collection("messages")
       .find(query)
       .sort({ date: -1, createdAt: -1 })
       .limit(filter.limit ?? 40)
@@ -353,35 +379,35 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
   }
 
   async markSeen(input: { workspaceId?: string | null; mailbox: string; id: string; seen: boolean }) {
-    await this.collection("mail_messages").updateOne(
+    await this.collection("messages").updateOne(
       this.messageFilter(input),
       { $set: { seen: input.seen, updatedAt: new Date() } },
     );
   }
 
   async setFlagged(input: { workspaceId?: string | null; mailbox: string; id: string; flagged: boolean }) {
-    await this.collection("mail_messages").updateOne(
+    await this.collection("messages").updateOne(
       this.messageFilter(input),
       { $set: { flagged: input.flagged, updatedAt: new Date() } },
     );
   }
 
   async moveMessage(input: { workspaceId?: string | null; mailbox: string; id: string; folder: string }) {
-    await this.collection("mail_messages").updateOne(
+    await this.collection("messages").updateOne(
       this.messageFilter(input),
       { $set: { folder: input.folder, updatedAt: new Date() } },
     );
   }
 
   async softDeleteMessage(input: { workspaceId?: string | null; mailbox: string; id: string }) {
-    await this.collection("mail_messages").updateOne(
+    await this.collection("messages").updateOne(
       this.messageFilter(input),
       { $set: { deletedAt: new Date(), updatedAt: new Date() } },
     );
   }
 
   async findMessage(input: { workspaceId?: string | null; mailbox: string; id: string }) {
-    return this.collection("mail_messages").findOne(this.messageFilter(input));
+    return this.collection("messages").findOne(this.messageFilter(input));
   }
 
   async getAttachment(input: { workspaceId?: string | null; mailbox?: string; id: string }) {
@@ -390,7 +416,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       workspaceId: input.workspaceId ?? null,
     };
     if (input.mailbox) filter.mailbox = input.mailbox.toLowerCase();
-    const attachment = await this.collection("mail_attachments").findOne(filter);
+    const attachment = await this.collection("attachments").findOne(filter);
     if (!attachment) {
       throw new NotFoundException("Attachment not found");
     }
@@ -406,16 +432,18 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureIndexes() {
-    await this.collection("mail_messages").createIndex(
+    await this.collection("messages").createIndex(
       { workspaceId: 1, mailbox: 1, folder: 1, uid: 1 },
       { unique: true, sparse: true },
     );
-    await this.collection("mail_messages").createIndex({ workspaceId: 1, mailbox: 1, folder: 1, date: -1 });
-    await this.collection("mail_messages").createIndex({ messageId: 1, mailbox: 1 });
-    await this.collection("mail_attachments").createIndex({ id: 1 }, { unique: true });
-    await this.collection("mail_attachments").createIndex({ workspaceId: 1, mailbox: 1, messageId: 1 });
+    await this.collection("messages").createIndex({ workspaceId: 1, mailbox: 1, folder: 1, date: -1 });
+    await this.collection("messages").createIndex({ messageId: 1, mailbox: 1 });
+    await this.collection("conversations").createIndex({ workspaceId: 1, mailbox: 1, threadId: 1 }, { unique: true });
+    await this.collection("attachments").createIndex({ id: 1 }, { unique: true });
+    await this.collection("attachments").createIndex({ workspaceId: 1, mailbox: 1, messageId: 1 });
     await this.collection("mailboxes").createIndex({ workspaceId: 1, mailbox: 1 }, { unique: true });
-    await this.collection("mail_folders").createIndex({ workspaceId: 1, mailbox: 1, path: 1 }, { unique: true });
+    await this.collection("folders").createIndex({ workspaceId: 1, mailbox: 1, path: 1 }, { unique: true });
+    await this.collection("mail_sync_logs").createIndex({ workspace_id: 1, mailbox: 1, created_at: -1 });
   }
 
   private collection(name: string) {
@@ -434,7 +462,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
 
   private async findExistingMessage(input: ArchiveMessageInput) {
     if (input.uid == null) return null;
-    return this.collection("mail_messages").findOne({
+    return this.collection("messages").findOne({
       workspaceId: input.workspaceId ?? null,
       mailbox: input.mailbox.toLowerCase(),
       folder: input.folder,
@@ -450,12 +478,17 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
   ) {
     const text = input.text ?? "";
     const html = input.html ?? "";
+    const subject = input.subject || "(No subject)";
+    const threadId = this.threadKey(subject);
+    const conversationId = this.conversationId(input.workspaceId ?? null, input.mailbox, threadId);
     const doc: Record<string, unknown> = {
       id,
       workspaceId: input.workspaceId ?? null,
       mailbox: input.mailbox.toLowerCase(),
       mailboxId: input.mailboxId ?? null,
       folder: input.folder,
+      threadId,
+      conversationId,
       messageId: input.messageId ?? null,
       inReplyTo: input.inReplyTo ?? null,
       references: input.references ?? [],
@@ -463,7 +496,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       to: input.to ?? [],
       cc: input.cc ?? [],
       bcc: input.bcc ?? [],
-      subject: input.subject || "(No subject)",
+      subject,
       text,
       html,
       preview: this.preview(text || this.textFromHtml(html)),
@@ -537,7 +570,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
     attachments: ArchiveAttachment[],
   ) {
     for (const attachment of attachments) {
-      await this.collection("mail_attachments").updateOne(
+      await this.collection("attachments").updateOne(
         { id: attachment.id },
         {
           $set: {
@@ -554,6 +587,34 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private async persistConversation(input: ArchiveMessageInput, messageId: string, now: Date) {
+    const subject = input.subject || "(No subject)";
+    const threadId = this.threadKey(subject);
+    await this.collection("conversations").updateOne(
+      {
+        workspaceId: input.workspaceId ?? null,
+        mailbox: input.mailbox.toLowerCase(),
+        threadId,
+      },
+      {
+        $set: {
+          workspaceId: input.workspaceId ?? null,
+          mailbox: input.mailbox.toLowerCase(),
+          threadId,
+          subject,
+          lastMessageId: messageId,
+          lastMessageAt: input.date ? new Date(input.date) : now,
+          updatedAt: now,
+        },
+        $setOnInsert: {
+          id: this.conversationId(input.workspaceId ?? null, input.mailbox, threadId),
+          createdAt: now,
+        },
+      },
+      { upsert: true },
+    );
+  }
+
   private messageFilter(input: { workspaceId?: string | null; mailbox: string; id: string }) {
     return {
       id: input.id,
@@ -566,7 +627,7 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
     const attachments = this.arrayValue(row.attachments);
     const withData = [];
     for (const attachment of attachments) {
-      const metadata = await this.collection("mail_attachments").findOne({
+      const metadata = await this.collection("attachments").findOne({
         id: this.stringValue(attachment.id),
       });
       const storagePath = this.stringValue(metadata?.storagePath);
@@ -672,6 +733,10 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
       .replace(/^\s*(re|fw|fwd):\s*/gi, "")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  private conversationId(workspaceId: string | null, mailbox: string, threadId: string) {
+    return Buffer.from(`${workspaceId ?? "global"}:${mailbox.toLowerCase()}:${threadId}`).toString("base64url");
   }
 
   private escapeRegex(value: string) {

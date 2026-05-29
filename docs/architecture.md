@@ -15,8 +15,8 @@ AWS ALB or API Gateway
   v
 NestJS Backend API
   |
-  +-- PostgreSQL RDS: users, domains, mailboxes, aliases, quotas
-  +-- Redis ElastiCache: queues, rate limits, sessions
+  +-- MongoDB Atlas: users, workspaces, domains, mailboxes, aliases, mail data
+  +-- Local disk: physical attachment files
   +-- BullMQ Workers: DNS checks, provisioning, logs
   +-- S3: backups, exports, archived logs
   |
@@ -44,8 +44,8 @@ AWS VPC
   +-- Private subnets
         +-- Backend ECS service or EC2
         +-- Worker ECS service or EC2
-        +-- RDS PostgreSQL
-        +-- ElastiCache Redis
+        +-- Backend EC2/ECS attachment volume
+        +-- Private outbound access to MongoDB Atlas
 ```
 
 ## Customer Domain Flow
@@ -72,7 +72,7 @@ Domain becomes active
 User creates info@company.com
   |
   v
-Mailbox row is inserted into PostgreSQL
+Mailbox metadata is mirrored into MongoDB Atlas
   |
   v
 Postfix/Dovecot can authenticate and route mail
@@ -90,20 +90,23 @@ TXT   _dmarc                   v=DMARC1; p=quarantine; rua=mailto:dmarc@yourmail
 CNAME webmail                  webmail.yourmailplatform.com
 ```
 
-## Core Database Tables
+## Core MongoDB Collections
 
 ```text
 users
 workspaces
 domains
-domain_dns_checks
+dns_records
 mailboxes
 aliases
-quotas
-smtp_logs
-imap_sessions
+folders
+conversations
+messages
+attachments
+sessions
 audit_logs
-billing_subscriptions
+app_settings
+mail_sync_logs
 ```
 
 ## Deployment Model
@@ -119,7 +122,7 @@ billing_subscriptions
 - Run `apps/backend` on ECS Fargate or EC2.
 - Put it behind an ALB or API Gateway.
 - Store secrets in AWS Secrets Manager.
-- Restrict database and Redis access to private subnets.
+- Restrict MongoDB Atlas network access to trusted backend egress IPs.
 
 ### AWS Mail
 

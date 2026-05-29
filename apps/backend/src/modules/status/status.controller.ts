@@ -1,10 +1,12 @@
 import { Controller, Get } from "@nestjs/common";
+import { DatabaseService } from "../database/database.service";
 import { MailWorkspaceService } from "../mail-workspace/mail-workspace.service";
 import { MailcowService } from "../mailcow/mailcow.service";
 
 @Controller("api/status")
 export class StatusController {
   constructor(
+    private readonly database: DatabaseService,
     private readonly mailcow: MailcowService,
     private readonly mailWorkspace: MailWorkspaceService,
   ) {}
@@ -16,6 +18,9 @@ export class StatusController {
       api: {
         healthy: true,
         timestamp: new Date().toISOString(),
+      },
+      mongodb: {
+        connected: this.database.connected,
       },
       mailcow: await this.mailcow.connectionStatus(),
       smtp: {

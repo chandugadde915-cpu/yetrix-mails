@@ -9,9 +9,9 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       AUTH_SECRET: ${AUTH_SECRET}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://ownmail:ownmail@postgres:5432/ownmail}
       MONGODB_URI: ${MONGODB_URI:-}
-      MONGODB_DB: ${MONGODB_DB:-yetrix_mails}
+      MONGODB_DB: ${MONGODB_DB:-yetrix_mail}
+      MAILBOX_CREDENTIAL_ENCRYPTION_KEY: ${MAILBOX_CREDENTIAL_ENCRYPTION_KEY:-}
       MAILCOW_BASE_URL: ${MAILCOW_BASE_URL:-https://mail.yetrixtechnologies.com}
       MAILCOW_API_KEY: ${MAILCOW_API_KEY}
       MAIL_DOMAIN: ${MAIL_DOMAIN:-yetrixtechnologies.com}
@@ -27,8 +27,8 @@ services:
       MAIL_SMTP_REQUIRE_TLS: ${MAIL_SMTP_REQUIRE_TLS:-true}
       MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
       MAIL_SMTP_PASS: ${MAIL_SMTP_PASS:-}
-      MAIL_ATTACHMENT_DIR: ${MAIL_ATTACHMENT_DIR:-/opt/yetrix-mails/uploads/mail-attachments}
-      LOCAL_MAIL_STORAGE_DIR: ${LOCAL_MAIL_STORAGE_DIR:-/app/storage/sent-attachments}
+      MAIL_ATTACHMENT_DIR: ${MAIL_ATTACHMENT_DIR:-/app/storage/mail-attachments}
+      LOCAL_MAIL_STORAGE_DIR: ${LOCAL_MAIL_STORAGE_DIR:-/app/storage}
       RATE_LIMIT_PER_WINDOW: ${RATE_LIMIT_PER_WINDOW:-240}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       PLAN_NAME: ${PLAN_NAME:-Launch}
@@ -38,23 +38,6 @@ services:
       PLAN_LIMIT_USERS: ${PLAN_LIMIT_USERS:-10}
       PLAN_LIMIT_STORAGE_MB: ${PLAN_LIMIT_STORAGE_MB:-25600}
     volumes:
-      - ./storage/sent-attachments:/app/storage/sent-attachments
-      - ./uploads/mail-attachments:/opt/yetrix-mails/uploads/mail-attachments
+      - ./storage:/app/storage
     ports:
       - "4000:4000"
-    depends_on:
-      - postgres
-
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ownmail
-      POSTGRES_USER: ownmail
-      POSTGRES_PASSWORD: ownmail
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
-volumes:
-  postgres_data:
