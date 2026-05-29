@@ -28,17 +28,22 @@ export class DomainsController {
 
     return Promise.all(
       visibleDomains.map(async (domain) => {
-        const verification = await this.dnsService.verifyDomain(domain.domain);
-        await this.tenancy.recordDnsCheck(
+        const cachedDns = await this.tenancy.latestDnsCheck(
           req.user?.workspaceId,
           domain.domain,
-          verification,
           isSuperAdmin(req),
         );
+        const records = Array.isArray(cachedDns?.records) && cachedDns.records.length > 0
+          ? cachedDns.records
+          : domain.records;
+        const status = typeof cachedDns?.status === "string"
+          ? cachedDns.status
+          : domain.status;
         return {
           ...domain,
-          status: verification.verified ? "verified" : "pending_dns",
-          records: verification.records,
+          status,
+          records,
+          lastDnsCheckAt: cachedDns?.created_at ?? cachedDns?.updated_at ?? null,
         };
       }),
     );

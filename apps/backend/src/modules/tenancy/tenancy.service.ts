@@ -87,6 +87,15 @@ export class TenancyService {
     return verification;
   }
 
+  async latestDnsCheck(workspaceId: string | undefined, domain: string, includeAll = false) {
+    if (!this.database.enabled) return null;
+
+    const domainRow = await this.resolveDomainRow(workspaceId, domain, includeAll);
+    if (!domainRow) return null;
+
+    return this.database.latestDnsRecord(domain, includeAll ? null : domainRow.workspace_id);
+  }
+
   async recordDomain(workspaceId: string | undefined, domain: string) {
     const id = this.requireWorkspace(workspaceId);
     if (!id) return;

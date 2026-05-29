@@ -22,11 +22,16 @@ export class MailcowService {
   private readonly baseUrl?: string;
   private readonly apiKey?: string;
   private readonly mailServerIp: string;
+  private readonly timeoutMs: number;
+  private readonly cacheTtlMs: number;
+  private readonly cache = new Map<string, { expiresAt: number; value: unknown }>();
 
   constructor(config: ConfigService) {
     this.baseUrl = config.get<string>("MAILCOW_BASE_URL")?.replace(/\/$/, "");
     this.apiKey = config.get<string>("MAILCOW_API_KEY");
     this.mailServerIp = config.get<string>("MAIL_SERVER_IP", "56.228.11.175");
+    this.timeoutMs = Number(config.get<string>("MAILCOW_API_TIMEOUT_MS", "5000"));
+    this.cacheTtlMs = Number(config.get<string>("MAILCOW_CACHE_TTL_MS", "15000"));
   }
 
   async connectionStatus() {
@@ -39,7 +44,7 @@ export class MailcowService {
     }
 
     try {
-      await this.request("GET", "/get/domain/all");
+      await this.cached("connectionStatus", () => this.request("GET", "/get/domain/all"));
       return {
         connected: true,
         mailcowBaseUrl: this.baseUrl,
@@ -54,7 +59,7 @@ export class MailcowService {
   }
 
   async listDomains() {
-    const response = await this.request("GET", "/get/domain/all");
+    const response = await this.cached("domains", () => this.request("GET", "/get/domain/all"));
     const rows = this.asObjectRows(response);
     return rows.map((row) => this.normalizeDomain(row));
   }
@@ -83,17 +88,19 @@ export class MailcowService {
       rl_value: 10,
     });
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { domain, result: response };
   }
 
   async deleteDomain(domain: string) {
     const response = await this.request("POST", "/delete/domain", [domain]);
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { domain, result: response };
   }
 
   async listMailboxes() {
-    const response = await this.request("GET", "/get/mailbox/all");
+    const response = await this.cached("mailboxes", () => this.request("GET", "/get/mailbox/all"));
     const rows = this.asObjectRows(response);
     return rows.map((row) => this.normalizeMailbox(row));
   }
@@ -119,6 +126,7 @@ export class MailcowService {
       tls_enforce_out: "1",
     });
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { email: input.email.toLowerCase(), result: response };
   }
 
@@ -137,6 +145,7 @@ export class MailcowService {
       attr,
     });
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { email, result: response };
   }
 
@@ -149,6 +158,7 @@ export class MailcowService {
       },
     });
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { email, result: response };
   }
 
@@ -159,11 +169,12 @@ export class MailcowService {
   async deleteMailbox(email: string) {
     const response = await this.request("POST", "/delete/mailbox", [email]);
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { email, result: response };
   }
 
   async listAliases() {
-    const response = await this.request("GET", "/get/alias/all");
+    const response = await this.cached("aliases", () => this.request("GET", "/get/alias/all"));
     const rows = this.asObjectRows(response);
     return rows.map((row) => this.normalizeAlias(row));
   }
@@ -176,6 +187,7 @@ export class MailcowService {
       sogo_visible: false,
     });
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { address: input.address.toLowerCase(), result: response };
   }
 
@@ -194,12 +206,14 @@ export class MailcowService {
       attr,
     });
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { id, result: response };
   }
 
   async deleteAlias(id: string) {
     const response = await this.request("POST", "/delete/alias", [id]);
     this.assertMailcowSuccess(response);
+    this.clearCache();
     return { id, result: response };
   }
 
@@ -270,6 +284,7 @@ export class MailcowService {
 
     const response = await fetch(`${this.baseUrl}/api/v1${path}`, {
       method,
+      signal: AbortSignal.timeout(Number.isFinite(this.timeoutMs) ? this.timeoutMs : 5000),
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": this.apiKey,
@@ -287,6 +302,24 @@ export class MailcowService {
     }
 
     return parsed as T;
+  }
+
+  private async cached<T>(key: string, loader: () => Promise<T>) {
+    const cached = this.cache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value as T;
+    }
+
+    const value = await loader();
+    this.cache.set(key, {
+      value,
+      expiresAt: Date.now() + (Number.isFinite(this.cacheTtlMs) ? this.cacheTtlMs : 15000),
+    });
+    return value;
+  }
+
+  private clearCache() {
+    this.cache.clear();
   }
 
   private parseJson(text: string) {

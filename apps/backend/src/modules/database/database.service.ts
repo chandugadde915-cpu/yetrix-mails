@@ -328,6 +328,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return row;
   }
 
+  async latestDnsRecord(domain: string, workspaceId?: string | null) {
+    const filter: Record<string, unknown> = { domain: domain.toLowerCase() };
+    if (workspaceId) filter.workspace_id = workspaceId;
+    const rows = await this.collection("dns_records").find(filter).sort({ created_at: -1 }).limit(1).toArray();
+    return this.row<Record<string, unknown>>(rows[0] ?? null);
+  }
+
   async recordMailbox(input: {
     workspaceId: string;
     domainId?: string | null;
