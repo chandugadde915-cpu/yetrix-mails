@@ -412,8 +412,10 @@ export class MailWorkspaceService {
     const transport = this.smtpTransport({ email: input.from, password: input.password });
     const scope = await this.mailScope(input.from, workspaceId);
     const mongoMail = this.mongoMail?.enabled ? this.mongoMail : null;
-    const archive = mongoMail
-      ? await mongoMail.createOutgoingQueued({
+    let archive: Awaited<ReturnType<MongoMailService["createOutgoingQueued"]>> | null = null;
+    if (mongoMail) {
+      try {
+        archive = await mongoMail.createOutgoingQueued({
           workspaceId: scope.workspaceId,
           mailbox: input.from,
           mailboxId: scope.mailboxId,
@@ -429,14 +431,19 @@ export class MailWorkspaceService {
           status: "queued",
           date: new Date(),
           seen: true,
-        })
-      : null;
+        });
+      } catch (error) {
+        this.logger.error(
+          `Mongo queued message save failed from=${input.from}: ${this.errorMessage(error)}`,
+        );
+      }
+    }
     const storedAttachments = archive?.attachments ?? (await this.storeAttachments(input.attachments ?? []));
 
     let result;
     try {
       if (archive) {
-        await mongoMail?.updateMessageStatus(archive.id, "sending");
+        await this.updateArchiveStatus(mongoMail, archive.id, "sending");
       }
       this.logger.log(`SMTP connection start mode=mailcow-relay from=${input.from}`);
       result = await transport.sendMail({
@@ -460,7 +467,8 @@ export class MailWorkspaceService {
         `SMTP failure mode=mailcow-relay from=${input.from}: ${this.errorMessage(error)}`,
       );
       if (archive) {
-        await mongoMail?.updateMessageStatus(
+        await this.updateArchiveStatus(
+          mongoMail,
           archive.id,
           "failed",
           error instanceof Error ? error.message : "SMTP send failed",
@@ -475,9 +483,13 @@ export class MailWorkspaceService {
       this.logger.warn(`IMAP Sent append failure from=${input.from}: ${this.errorMessage(error)}`);
     }
     if (archive) {
-      await mongoMail?.updateMessageStatus(archive.id, "sent");
+      await this.updateArchiveStatus(mongoMail, archive.id, "sent");
     }
-    await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments);
+    await this.recordSentAttachments(workspaceId, input, String(result.messageId ?? ""), storedAttachments).catch(
+      (error) => {
+        this.logger.warn(`Sent attachment metadata save failed from=${input.from}: ${this.errorMessage(error)}`);
+      },
+    );
 
     return {
       id: archive?.id,
@@ -886,6 +898,25 @@ export class MailWorkspaceService {
         storagePath: attachment.storagePath,
         messageId,
       });
+    }
+  }
+
+  private async updateArchiveStatus(
+    mongoMail: MongoMailService | null,
+    id: string,
+    status: "queued" | "sending" | "sent" | "failed",
+    error?: string,
+  ) {
+    if (!mongoMail) {
+      return;
+    }
+
+    try {
+      await mongoMail.updateMessageStatus(id, status, error);
+    } catch (statusError) {
+      this.logger.warn(
+        `Mongo message status update failed id=${id} status=${status}: ${this.errorMessage(statusError)}`,
+      );
     }
   }
 

@@ -991,7 +991,7 @@ function sendErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (
     !message ||
-    /unable to send|temporarily unavailable|service unavailable|mailbox service|workspace service/i.test(message)
+    /unable to send|temporarily unavailable|service unavailable|mailbox service|workspace service|duplicate key|E11000|MongoDB/i.test(message)
   ) {
     return sendUnavailableMessage;
   }

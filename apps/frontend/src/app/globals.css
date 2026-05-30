@@ -3361,6 +3361,24 @@ textarea {
   color: #111827;
 }
 
+.auth-panel-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.auth-panel-links a,
+.login-help-row a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .auth-mark {
   display: grid;
   place-items: center;
@@ -3402,6 +3420,48 @@ textarea {
   padding: 0 12px;
   background: white;
   color: #111827;
+}
+
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  padding-right: 46px;
+}
+
+.password-field button {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #475467;
+  cursor: pointer;
+}
+
+.password-field button:hover {
+  background: #f1f5f9;
+  color: var(--accent);
+}
+
+.login-help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.login-help-row span {
+  color: var(--muted);
+  text-align: right;
 }
 
 .auth-button {

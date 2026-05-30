@@ -6,6 +6,7 @@ import { basename, join, resolve } from "path";
 
 type MongoCollection = {
   createIndex: (keys: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
+  dropIndex?: (indexName: string) => Promise<unknown>;
   updateOne: (
     filter: Record<string, unknown>,
     update: Record<string, unknown>,
@@ -432,9 +433,16 @@ export class MongoMailService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureIndexes() {
+    await this.collection("messages")
+      .dropIndex?.("workspaceId_1_mailbox_1_folder_1_uid")
+      .catch(() => undefined);
     await this.collection("messages").createIndex(
       { workspaceId: 1, mailbox: 1, folder: 1, uid: 1 },
-      { unique: true, sparse: true },
+      {
+        name: "workspaceId_1_mailbox_1_folder_1_uid",
+        unique: true,
+        partialFilterExpression: { uid: { $exists: true, $ne: null } },
+      },
     );
     await this.collection("messages").createIndex({ workspaceId: 1, mailbox: 1, folder: 1, date: -1 });
     await this.collection("messages").createIndex({ messageId: 1, mailbox: 1 });

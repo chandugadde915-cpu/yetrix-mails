@@ -1,7 +1,8 @@
 "use client";
 
 import { apiPostPublic } from "@/lib/client-api";
-import { ArrowRight, Inbox, LockKeyhole, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Home, Inbox, LockKeyhole, Mail } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { MailWorkspaceClient } from "./MailWorkspaceClient";
 
@@ -20,6 +21,7 @@ export function MailboxLoginClient() {
   const [sessionNotice, setSessionNotice] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const saved = window.sessionStorage.getItem(sessionKey);
@@ -100,6 +102,13 @@ export function MailboxLoginClient() {
         </div>
       </section>
       <section className="auth-panel" aria-label="Mailbox login">
+        <div className="auth-panel-links" aria-label="Mailbox navigation">
+          <Link href="/">
+            <Home size={15} />
+            Yetrix home
+          </Link>
+          <Link href="/login">Admin login</Link>
+        </div>
         <div className="auth-mark">
           <Mail size={22} />
         </div>
@@ -118,15 +127,30 @@ export function MailboxLoginClient() {
           </label>
           <label>
             Mailbox password
-            <input
-              autoComplete="current-password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
+            <span className="password-field">
+              <input
+                autoComplete="current-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <button
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </span>
           </label>
           {error ? <div className="form-error">{error}</div> : null}
+          <div className="login-help-row">
+            <a href="mailto:support@yetrixtechnologies.com?subject=Mailbox%20password%20reset">
+              Forgot password?
+            </a>
+            <span>Ask your workspace admin to reset access.</span>
+          </div>
           <button className="button auth-button" type="submit" disabled={loading}>
             <LockKeyhole size={18} />
             {loading ? "Opening" : "Open mailbox"}
